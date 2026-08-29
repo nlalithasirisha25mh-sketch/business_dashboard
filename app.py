@@ -1,20 +1,43 @@
-
 import streamlit as st
 import pandas as pd
-import uuid
-from datetime import datetime
-
+import matplotlib.pyplot as plt
 
 # ============================================================
-# PAGE CONFIG
+# IBeX - Campus Marketplace Prototype
+# Managing Platform Business Project | IFHE Hyderabad
 # ============================================================
 
 st.set_page_config(
     page_title="IBeX | Campus Marketplace",
-    page_icon="🔄",
+    page_icon="💜",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+# ============================================================
+# SESSION STATE
+# ============================================================
+
+if "nav" not in st.session_state:
+    st.session_state.nav = "Home"
+
+if "cart" not in st.session_state:
+    st.session_state.cart = []
+
+if "points" not in st.session_state:
+    st.session_state.points = 245
+
+if "orders" not in st.session_state:
+    st.session_state.orders = []
+
+if "selected_item" not in st.session_state:
+    st.session_state.selected_item = None
+
+if "checkout" not in st.session_state:
+    st.session_state.checkout = False
+
+if "listing_submitted" not in st.session_state:
+    st.session_state.listing_submitted = False
 
 
 # ============================================================
@@ -24,650 +47,741 @@ st.set_page_config(
 st.markdown("""
 <style>
 
-/* ==========================================================
-   GLOBAL
-   ========================================================== */
+    /* ---------- GLOBAL ---------- */
 
-.stApp {
-    background-color: #F8FAFC;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-}
+    .stApp {
+        background: #F8FAFC;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: #1E293B;
+    }
 
-.block-container {
-    padding-top: 1.2rem;
-    padding-bottom: 3rem;
-    max-width: 1400px;
-}
+    .main .block-container {
+        max-width: 1500px;
+        padding-top: 1.5rem;
+        padding-bottom: 3rem;
+    }
 
-header[data-testid="stHeader"] {
-    background: transparent;
-}
+    /* ---------- TOP HEADER ---------- */
 
-section[data-testid="stSidebar"] {
-    display: none;
-}
+    .brand-name {
+        font-size: 2.35rem;
+        font-weight: 800;
+        color: #5630A8;
+        line-height: 1;
+        margin-bottom: 4px;
+    }
 
+    .brand-tagline {
+        font-size: 0.88rem;
+        color: #64748B;
+        font-weight: 500;
+        letter-spacing: 0.2px;
+    }
 
-/* ==========================================================
-   BRAND
-   ========================================================== */
+    .points-pill {
+        background: #F1EAFE;
+        border: 1px solid #DDD0FA;
+        border-radius: 14px;
+        padding: 10px 16px;
+        text-align: center;
+        color: #5630A8;
+        font-weight: 700;
+    }
 
-.brand-logo {
-    font-size: 2.15rem;
-    font-weight: 850;
-    color: #5B2C83;
-    line-height: 1;
-    margin-bottom: 3px;
-}
+    .header-line {
+        border-bottom: 1px solid #E2E8F0;
+        margin-top: 16px;
+        margin-bottom: 30px;
+    }
 
-.brand-tagline {
-    font-size: 0.78rem;
-    color: #64748B;
-    letter-spacing: 0.04em;
-    font-weight: 500;
-}
+    /* ---------- BUTTONS ---------- */
 
+    .stButton > button {
+        border-radius: 11px;
+        border: 1px solid #E2E8F0;
+        background: #FFFFFF;
+        color: #334155;
+        font-weight: 600;
+        min-height: 42px;
+        transition: all 0.2s ease;
+    }
 
-/* ==========================================================
-   HERO
-   ========================================================== */
+    .stButton > button:hover {
+        border-color: #8B5CF6;
+        color: #5630A8;
+        transform: translateY(-1px);
+    }
 
-.hero-glass {
-    background:
-        linear-gradient(
-            135deg,
-            rgba(255,255,255,0.95),
-            rgba(248,245,255,0.88)
-        );
-    border: 1px solid #E2E8F0;
-    border-radius: 24px;
-    padding: 3rem 3.2rem;
-    margin-top: 1.2rem;
-    margin-bottom: 1.3rem;
-    box-shadow: 0px 15px 45px rgba(91, 44, 131, 0.08);
-}
+    /* ---------- HERO ---------- */
 
-.hero-title {
-    font-size: 3.25rem;
-    font-weight: 850;
-    color: #111827;
-    line-height: 1.08;
-    margin-bottom: 0.8rem;
-}
+    .hero {
+        background: linear-gradient(135deg, #FFFFFF 0%, #F7F2FF 100%);
+        border: 1px solid #E2E8F0;
+        border-radius: 24px;
+        padding: 42px 46px;
+        margin-bottom: 22px;
+        box-shadow: 0 10px 35px rgba(86, 48, 168, 0.06);
+    }
 
-.hero-highlight {
-    color: #6A359C;
-}
+    .hero-title {
+        font-size: 3rem;
+        font-weight: 800;
+        color: #172033;
+        line-height: 1.12;
+        margin-bottom: 14px;
+    }
 
-.hero-text {
-    font-size: 1.08rem;
-    color: #64748B;
-    max-width: 760px;
-    line-height: 1.7;
-}
+    .hero-highlight {
+        color: #6D3CC8;
+    }
 
+    .hero-text {
+        font-size: 1.08rem;
+        color: #64748B;
+        max-width: 800px;
+        line-height: 1.7;
+        margin-bottom: 20px;
+    }
 
-/* ==========================================================
-   TRUST PILLS
-   ========================================================== */
+    /* ---------- TRUST PILLS ---------- */
 
-.trust-row {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-top: 1.4rem;
-}
+    .trust-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 15px;
+    }
 
-.trust-pill {
-    display: inline-block;
-    background: #FFFFFF;
-    border: 1px solid #E2E8F0;
-    border-radius: 100px;
-    padding: 8px 14px;
-    font-size: 0.85rem;
-    font-weight: 650;
-    color: #334155;
-}
+    .trust-pill {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 999px;
+        padding: 8px 14px;
+        color: #475569;
+        font-size: 0.88rem;
+        font-weight: 600;
+    }
 
+    /* ---------- IMPACT METRICS ---------- */
 
-/* ==========================================================
-   METRIC PILLS
-   ========================================================== */
+    .metric-card {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 15px;
+        padding: 18px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(15, 23, 42, 0.03);
+    }
 
-.metric-pill {
-    background: rgba(255,255,255,0.92);
-    border: 1px solid #E2E8F0;
-    border-radius: 16px;
-    padding: 16px;
-    text-align: center;
-    box-shadow: 0px 5px 18px rgba(15,23,42,0.04);
-}
+    .metric-number {
+        font-size: 1.65rem;
+        font-weight: 800;
+        color: #5630A8;
+    }
 
-.metric-number {
-    font-size: 1.55rem;
-    font-weight: 800;
-    color: #5B2C83;
-}
+    .metric-label {
+        font-size: 0.82rem;
+        color: #64748B;
+        margin-top: 3px;
+    }
 
-.metric-label {
-    font-size: 0.80rem;
-    color: #64748B;
-    margin-top: 2px;
-}
+    /* ---------- SECTION TITLES ---------- */
 
+    .section-title {
+        font-size: 1.55rem;
+        font-weight: 750;
+        color: #172033;
+        margin-top: 20px;
+        margin-bottom: 5px;
+    }
 
-/* ==========================================================
-   SECTION TITLES
-   ========================================================== */
+    .section-subtitle {
+        color: #64748B;
+        margin-bottom: 20px;
+    }
 
-.section-title {
-    font-size: 1.7rem;
-    font-weight: 800;
-    color: #111827;
-    margin-top: 1.7rem;
-    margin-bottom: 0.3rem;
-}
+    /* ---------- PRODUCT CARDS ---------- */
 
-.section-subtitle {
-    font-size: 0.95rem;
-    color: #64748B;
-    margin-bottom: 1.2rem;
-}
+    .product-card {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 17px;
+        padding: 18px;
+        min-height: 285px;
+        margin-bottom: 8px;
+        box-shadow: 0 5px 18px rgba(15, 23, 42, 0.04);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
 
+    .product-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    }
 
-/* ==========================================================
-   PRODUCT CARDS
-   ========================================================== */
+    .product-icon {
+        background: #F5F3FF;
+        border-radius: 13px;
+        height: 100px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3.3rem;
+        margin-bottom: 14px;
+    }
 
-.product-card {
-    background: #FFFFFF;
-    border: 1px solid #E2E8F0;
-    border-radius: 16px;
-    padding: 1.15rem;
-    min-height: 300px;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    box-shadow: 0 4px 12px rgba(15,23,42,0.025);
-}
+    .product-name {
+        font-size: 1.08rem;
+        font-weight: 750;
+        color: #1E293B;
+        margin-bottom: 7px;
+    }
 
-.product-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0px 12px 28px rgba(15,23,42,0.08);
-}
+    .product-detail {
+        font-size: 0.82rem;
+        color: #64748B;
+        margin-bottom: 5px;
+    }
 
-.product-image {
-    background: linear-gradient(135deg,#F3E8FF,#F8FAFC);
-    height: 115px;
-    border-radius: 12px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 3.4rem;
-    margin-bottom: 1rem;
-}
+    .price {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #5630A8;
+        margin-top: 10px;
+    }
 
-.product-name {
-    color: #111827;
-    font-size: 1.05rem;
-    font-weight: 750;
-    margin-top: 8px;
-    margin-bottom: 5px;
-}
+    .badge-rent {
+        display: inline-block;
+        background: #E0F2FE;
+        color: #0369A1;
+        padding: 5px 9px;
+        border-radius: 7px;
+        font-size: 0.72rem;
+        font-weight: 750;
+    }
 
-.product-price {
-    color: #111827;
-    font-size: 1.35rem;
-    font-weight: 850;
-    margin-top: 8px;
-}
+    .badge-sale {
+        display: inline-block;
+        background: #DCFCE7;
+        color: #15803D;
+        padding: 5px 9px;
+        border-radius: 7px;
+        font-size: 0.72rem;
+        font-weight: 750;
+    }
 
-.product-meta {
-    color: #64748B;
-    font-size: 0.78rem;
-    line-height: 1.6;
-}
+    .badge-help {
+        display: inline-block;
+        background: #FEE2E2;
+        color: #B91C1C;
+        padding: 5px 9px;
+        border-radius: 7px;
+        font-size: 0.72rem;
+        font-weight: 750;
+    }
 
-.verified {
-    color: #15803D;
-    font-size: 0.78rem;
-    font-weight: 700;
-}
+    .badge-lend {
+        display: inline-block;
+        background: #FEF3C7;
+        color: #92400E;
+        padding: 5px 9px;
+        border-radius: 7px;
+        font-size: 0.72rem;
+        font-weight: 750;
+    }
 
+    /* ---------- WORKFLOW ---------- */
 
-/* ==========================================================
-   BADGES
-   ========================================================== */
+    .step-card {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 15px;
+        padding: 22px;
+        min-height: 150px;
+    }
 
-.badge-rent {
-    background-color: #E0F2FE;
-    color: #0369A1;
-    font-weight: 700;
-    padding: 5px 9px;
-    border-radius: 6px;
-    font-size: 0.70rem;
-}
+    .step-number {
+        background: #5630A8;
+        color: #FFFFFF;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        margin-bottom: 12px;
+    }
 
-.badge-sale {
-    background-color: #DCFCE7;
-    color: #166534;
-    font-weight: 700;
-    padding: 5px 9px;
-    border-radius: 6px;
-    font-size: 0.70rem;
-}
+    .step-title {
+        font-weight: 750;
+        color: #1E293B;
+        margin-bottom: 6px;
+    }
 
-.badge-help {
-    background-color: #FEE2E2;
-    color: #B91C1C;
-    font-weight: 700;
-    padding: 5px 9px;
-    border-radius: 6px;
-    font-size: 0.70rem;
-}
+    .step-text {
+        color: #64748B;
+        font-size: 0.87rem;
+        line-height: 1.5;
+    }
 
+    /* ---------- SERVICE CARDS ---------- */
 
-/* ==========================================================
-   STEP CARDS
-   ========================================================== */
+    .service-card {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 17px;
+        padding: 24px;
+        min-height: 190px;
+        box-shadow: 0 5px 18px rgba(15, 23, 42, 0.04);
+    }
 
-.step-card {
-    background: #FFFFFF;
-    border: 1px solid #E2E8F0;
-    border-radius: 16px;
-    padding: 1.35rem;
-    min-height: 185px;
-}
+    .service-icon {
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
 
-.step-number {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: #6A359C;
-    color: white;
-    font-weight: 800;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 12px;
-}
+    .service-title {
+        font-size: 1.1rem;
+        font-weight: 750;
+        color: #1E293B;
+        margin-bottom: 7px;
+    }
 
-.step-title {
-    color: #111827;
-    font-size: 1rem;
-    font-weight: 750;
-}
+    .service-text {
+        color: #64748B;
+        font-size: 0.88rem;
+        line-height: 1.55;
+    }
 
-.step-text {
-    color: #64748B;
-    font-size: 0.85rem;
-    line-height: 1.6;
-}
+    /* ---------- COMMUNITY ---------- */
 
+    .community-box {
+        background: linear-gradient(135deg, #F7F2FF, #FFFFFF);
+        border: 1px solid #DDD0FA;
+        border-radius: 20px;
+        padding: 30px;
+    }
 
-/* ==========================================================
-   GENERIC CARDS
-   ========================================================== */
+    /* ---------- CHECKOUT ---------- */
 
-.info-card {
-    background: #FFFFFF;
-    border: 1px solid #E2E8F0;
-    border-radius: 16px;
-    padding: 1.3rem;
-    box-shadow: 0 4px 12px rgba(15,23,42,0.03);
-}
+    .checkout-card {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 18px;
+        padding: 25px;
+        box-shadow: 0 8px 25px rgba(15, 23, 42, 0.05);
+    }
 
-.secure-box {
-    background: #F0FDF4;
-    border: 1px solid #BBF7D0;
-    border-radius: 12px;
-    padding: 1rem;
-    color: #166534;
-}
+    .secure-box {
+        background: #F0FDF4;
+        border: 1px solid #BBF7D0;
+        border-radius: 12px;
+        padding: 13px;
+        color: #166534;
+        font-size: 0.87rem;
+        margin-top: 12px;
+    }
 
-.warning-box {
-    background: #FFF7ED;
-    border: 1px solid #FED7AA;
-    border-radius: 12px;
-    padding: 1rem;
-    color: #9A3412;
-}
+    /* ---------- FOOTER ---------- */
 
-
-/* ==========================================================
-   BUTTONS
-   ========================================================== */
-
-div.stButton > button {
-    border-radius: 10px;
-    border: 1px solid #E2E8F0;
-    font-weight: 650;
-    transition: 0.2s;
-}
-
-div.stButton > button:hover {
-    border-color: #6A359C;
-    color: #6A359C;
-}
-
-
-/* ==========================================================
-   INPUTS
-   ========================================================== */
-
-div[data-baseweb="select"] > div {
-    border-radius: 10px;
-}
-
-div[data-testid="stTextInput"] input {
-    border-radius: 10px;
-}
-
-
-/* ==========================================================
-   FOOTER
-   ========================================================== */
-
-.footer {
-    text-align: center;
-    color: #94A3B8;
-    font-size: 0.8rem;
-    padding-top: 2rem;
-}
+    .footer {
+        text-align: center;
+        color: #94A3B8;
+        font-size: 0.82rem;
+        padding: 30px 0 10px 0;
+    }
 
 </style>
 """, unsafe_allow_html=True)
 
 
 # ============================================================
-# SESSION STATE
+# DEMO MARKETPLACE DATA
+# ============================================================
+# These are PROTOTYPE / DEMONSTRATION listings.
+# They are NOT real transactions.
+
+items = [
+    {
+        "id": 1,
+        "name": "Wireless Headphones",
+        "category": "Electronics",
+        "type": "FOR SALE",
+        "icon": "🎧",
+        "price": 800,
+        "unit": "one-time",
+        "condition": "Good",
+        "block": "ABCD Block",
+        "seller": "Verified Student",
+        "deposit": 0
+    },
+    {
+        "id": 2,
+        "name": "Formal Blazer",
+        "category": "Clothing",
+        "type": "FOR RENT",
+        "icon": "🧥",
+        "price": 80,
+        "unit": "day",
+        "condition": "Very Good",
+        "block": "QRS Block",
+        "seller": "Verified Student",
+        "deposit": 300
+    },
+    {
+        "id": 3,
+        "name": "Scientific Calculator",
+        "category": "Study Material",
+        "type": "FOR RENT",
+        "icon": "🧮",
+        "price": 30,
+        "unit": "day",
+        "condition": "Good",
+        "block": "U-Block",
+        "seller": "Verified Student",
+        "deposit": 150
+    },
+    {
+        "id": 4,
+        "name": "Party Heels",
+        "category": "Footwear",
+        "type": "FOR RENT",
+        "icon": "👠",
+        "price": 50,
+        "unit": "day",
+        "condition": "Excellent",
+        "block": "T-Block",
+        "seller": "Verified Student",
+        "deposit": 200
+    },
+    {
+        "id": 5,
+        "name": "Mini Electric Kettle",
+        "category": "Hostel Utility",
+        "type": "FOR SALE",
+        "icon": "🫖",
+        "price": 650,
+        "unit": "one-time",
+        "condition": "Good",
+        "block": "G-Block",
+        "seller": "Verified Student",
+        "deposit": 0
+    },
+    {
+        "id": 6,
+        "name": "Yoga Mat",
+        "category": "Sports",
+        "type": "FOR RENT",
+        "icon": "🧘",
+        "price": 20,
+        "unit": "day",
+        "condition": "Good",
+        "block": "H-Block",
+        "seller": "Verified Student",
+        "deposit": 100
+    },
+    {
+        "id": 7,
+        "name": "Event Jewellery Set",
+        "category": "Accessories",
+        "type": "FOR RENT",
+        "icon": "💎",
+        "price": 60,
+        "unit": "day",
+        "condition": "Excellent",
+        "block": "B1-Block",
+        "seller": "Verified Student",
+        "deposit": 250
+    },
+    {
+        "id": 8,
+        "name": "Phone Charger",
+        "category": "Electronics",
+        "type": "FOR SALE",
+        "icon": "🔌",
+        "price": 250,
+        "unit": "one-time",
+        "condition": "Good",
+        "block": "B2-Block",
+        "seller": "Verified Student",
+        "deposit": 0
+    }
+]
+
+
+# ============================================================
+# HELPER FUNCTIONS
 # ============================================================
 
-if "current_page" not in st.session_state:
-    st.session_state.current_page = "Home"
-
-if "selected_item" not in st.session_state:
+def go_to(page):
+    st.session_state.nav = page
+    st.session_state.checkout = False
     st.session_state.selected_item = None
 
-if "orders" not in st.session_state:
-    st.session_state.orders = []
 
-if "points" not in st.session_state:
-    st.session_state.points = 245
-
-if "custom_listings" not in st.session_state:
-    st.session_state.custom_listings = []
-
-if "help_requests" not in st.session_state:
-    st.session_state.help_requests = []
+def add_to_cart(item):
+    if item["id"] not in [x["id"] for x in st.session_state.cart]:
+        st.session_state.cart.append(item)
+        st.success(f"Added {item['name']} to your cart.")
+    else:
+        st.info("This item is already in your cart.")
 
 
-# ============================================================
-# NAVIGATION FUNCTION
-# ============================================================
-
-def navigate(page):
-    st.session_state.current_page = page
-
-
-# ============================================================
-# HOSTEL BLOCKS
-# ============================================================
-
-HOSTEL_BLOCKS = [
-    "ABCD Block",
-    "QRS Block",
-    "U-Block",
-    "T-Block",
-    "G-Block",
-    "H-Block",
-    "B1-Block",
-    "B2-Block",
-    "D1-Block",
-    "D2-Block",
-    "S1-Block",
-    "S2-Block"
-]
-
-
-# ============================================================
-# PRODUCT EMOJIS
-# ============================================================
-
-CATEGORY_EMOJIS = {
-    "Academic": "📚",
-    "Fashion": "👗",
-    "Personal Care": "✨",
-    "Hostel Utility": "🏠",
-    "Electronics": "🔌",
-    "Sports": "🏸",
-    "Bags": "🎒",
-    "Event / Function": "🎉",
-    "Other": "📦"
-}
-
-
-# ============================================================
-# SAMPLE MARKETPLACE DATA
-# ============================================================
-
-marketplace_data = [
-
-    {
-        "id": "L001",
-        "item": "Scientific Calculator",
-        "category": "Academic",
-        "type": "Buy",
-        "price": 500,
-        "deposit": 0,
-        "condition": "Excellent",
-        "rating": 4.8,
-        "seller": "IBX Student 104",
-        "location": "ABCD Block",
-        "transactions": 18
-    },
-
-    {
-        "id": "L002",
-        "item": "Black Formal Heels",
-        "category": "Fashion",
-        "type": "Rent",
-        "price": 50,
-        "deposit": 300,
-        "condition": "Good",
-        "rating": 4.7,
-        "seller": "IBX Student 218",
-        "location": "QRS Block",
-        "transactions": 12
-    },
-
-    {
-        "id": "L003",
-        "item": "Hair Dryer",
-        "category": "Personal Care",
-        "type": "Rent",
-        "price": 30,
-        "deposit": 200,
-        "condition": "Excellent",
-        "rating": 4.9,
-        "seller": "IBX Student 302",
-        "location": "U-Block",
-        "transactions": 24
-    },
-
-    {
-        "id": "L004",
-        "item": "Electric Iron",
-        "category": "Hostel Utility",
-        "type": "Rent",
-        "price": 20,
-        "deposit": 150,
-        "condition": "Good",
-        "rating": 4.6,
-        "seller": "IBX Student 187",
-        "location": "T-Block",
-        "transactions": 10
-    },
-
-    {
-        "id": "L005",
-        "item": "Ethnic Kurta Set",
-        "category": "Fashion",
-        "type": "Rent",
-        "price": 100,
-        "deposit": 500,
-        "condition": "Excellent",
-        "rating": 4.9,
-        "seller": "IBX Student 411",
-        "location": "G-Block",
-        "transactions": 20
-    },
-
-    {
-        "id": "L006",
-        "item": "Extension Board",
-        "category": "Electronics",
-        "type": "Buy",
-        "price": 300,
-        "deposit": 0,
-        "condition": "Good",
-        "rating": 4.5,
-        "seller": "IBX Student 096",
-        "location": "H-Block",
-        "transactions": 8
-    },
-
-    {
-        "id": "L007",
-        "item": "Sports Shoes",
-        "category": "Sports",
-        "type": "Buy",
-        "price": 800,
-        "deposit": 0,
-        "condition": "Good",
-        "rating": 4.8,
-        "seller": "IBX Student 355",
-        "location": "B1-Block",
-        "transactions": 15
-    },
-
-    {
-        "id": "L008",
-        "item": "Tripod",
-        "category": "Electronics",
-        "type": "Rent",
-        "price": 40,
-        "deposit": 300,
-        "condition": "Good",
-        "rating": 4.7,
-        "seller": "IBX Student 274",
-        "location": "D1-Block",
-        "transactions": 16
-    }
-
-]
-
-marketplace_data.extend(st.session_state.custom_listings)
+def badge_class(item_type):
+    if item_type == "FOR RENT":
+        return "badge-rent"
+    elif item_type == "FOR SALE":
+        return "badge-sale"
+    elif item_type == "ESSENTIAL HELP":
+        return "badge-help"
+    else:
+        return "badge-lend"
 
 
 # ============================================================
 # TOP HEADER
 # ============================================================
 
-header = st.columns([2.2, 1, 1, 1, 1, 1.25, 1.25, 1.3])
+header_left, header_home, header_market, header_services, header_community, header_list, header_cart, header_points = st.columns(
+    [1.55, 0.85, 0.95, 0.9, 1.0, 1.05, 1.15, 1.05]
+)
 
-
-with header[0]:
-
+with header_left:
     st.markdown("""
-    <div>
-        <div class="brand-logo">IBeX</div>
-        <div class="brand-tagline">Campus Marketplace</div>
-    </div>
+    <div class="brand-name">IBeX</div>
+    <div class="brand-tagline">Campus Marketplace</div>
     """, unsafe_allow_html=True)
 
+with header_home:
+    if st.button("Home", use_container_width=True, key="nav_home"):
+        go_to("Home")
+        st.rerun()
 
-with header[1]:
+with header_market:
+    if st.button("Marketplace", use_container_width=True, key="nav_market"):
+        go_to("Marketplace")
+        st.rerun()
 
-    st.button(
-        "Home",
+with header_services:
+    if st.button("Services", use_container_width=True, key="nav_services"):
+        go_to("Services")
+        st.rerun()
+
+with header_community:
+    if st.button("Community", use_container_width=True, key="nav_community"):
+        go_to("Community")
+        st.rerun()
+
+with header_list:
+    if st.button("＋ List Item", use_container_width=True, key="nav_list"):
+        go_to("List Item")
+        st.rerun()
+
+with header_cart:
+    cart_count = len(st.session_state.cart)
+
+    if st.button(
+        f"🛒 Orders ({cart_count})",
         use_container_width=True,
-        on_click=navigate,
-        args=("Home",)
+        key="nav_cart"
+    ):
+        go_to("Checkout")
+        st.rerun()
+
+with header_points:
+    st.markdown(
+        f"""
+        <div class="points-pill">
+            👤 {st.session_state.points} Pts
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
+st.markdown('<div class="header-line"></div>', unsafe_allow_html=True)
 
-with header[2]:
 
-    st.button(
-        "Marketplace",
-        use_container_width=True,
-        on_click=navigate,
-        args=("Marketplace",)
+# ============================================================
+# CHECKOUT PAGE
+# ============================================================
+
+if st.session_state.nav == "Checkout":
+
+    st.markdown('<div class="section-title">🛒 Your Orders</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section-subtitle">Review your selected items before checkout.</div>',
+        unsafe_allow_html=True
     )
 
+    if len(st.session_state.cart) == 0:
 
-with header[3]:
+        st.info("Your cart is currently empty. Browse the marketplace to find something you need.")
 
-    st.button(
-        "Services",
-        use_container_width=True,
-        on_click=navigate,
-        args=("Services",)
-    )
+        if st.button("Browse Marketplace →", key="empty_cart_market"):
+            go_to("Marketplace")
+            st.rerun()
 
+    else:
 
-with header[4]:
+        total_item_cost = sum(item["price"] for item in st.session_state.cart)
+        total_deposit = sum(item["deposit"] for item in st.session_state.cart)
 
-    st.button(
-        "Community",
-        use_container_width=True,
-        on_click=navigate,
-        args=("Community",)
-    )
+        col1, col2 = st.columns([1.6, 1])
 
+        with col1:
 
-with header[5]:
+            for index, item in enumerate(st.session_state.cart):
 
-    st.button(
-        "＋ List Item",
-        use_container_width=True,
-        on_click=navigate,
-        args=("List Item",)
-    )
+                st.markdown(
+                    f"""
+                    <div class="checkout-card">
+                        <div style="font-size:2rem;">{item["icon"]}</div>
+                        <h3>{item["name"]}</h3>
+                        <p style="color:#64748B;">
+                            {item["type"]} • {item["condition"]} • {item["block"]}
+                        </p>
+                        <p style="font-size:1.2rem;font-weight:750;color:#5630A8;">
+                            ₹{item["price"]:,} / {item["unit"]}
+                        </p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
+                if st.button(
+                    f"Remove {item['name']}",
+                    key=f"remove_{item['id']}"
+                ):
+                    st.session_state.cart.pop(index)
+                    st.rerun()
 
-with header[6]:
+                st.write("")
 
-    st.button(
-        f"🛒 Orders ({len(st.session_state.orders)})",
-        use_container_width=True,
-        on_click=navigate,
-        args=("Orders",)
-    )
+        with col2:
 
+            st.markdown(
+                """
+                <div class="checkout-card">
+                    <h3>Order Summary</h3>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-with header[7]:
+            st.write(f"**Item total:** ₹{total_item_cost:,}")
 
-    st.button(
-        f"👤 {st.session_state.points} Pts",
-        use_container_width=True,
-        on_click=navigate,
-        args=("Profile",)
-    )
+            if total_deposit > 0:
+                st.write(f"**Refundable security deposit:** ₹{total_deposit:,}")
 
+            delivery_required = st.radio(
+                "Delivery option",
+                [
+                    "I'll collect it myself — Free",
+                    "Campus delivery — ₹20"
+                ],
+                key="delivery_option"
+            )
 
-st.divider()
+            delivery_fee = 20 if "Campus delivery" in delivery_required else 0
+
+            grand_total = total_item_cost + total_deposit + delivery_fee
+
+            st.markdown("---")
+
+            st.markdown(
+                f"""
+                <div style="font-size:1.25rem;font-weight:800;">
+                    Total Payable: ₹{grand_total:,}
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            st.markdown(
+                """
+                <div class="secure-box">
+                    🔒 <b>Secure Prototype Checkout</b><br>
+                    Payment details are not displayed or stored in this prototype.
+                    In a live version, a certified payment gateway would process the transaction.
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            payment_method = st.radio(
+                "Payment Method",
+                [
+                    "UPI / Digital Payment",
+                    "Cash on Delivery"
+                ],
+                key="payment_method"
+            )
+
+            if payment_method == "UPI / Digital Payment":
+
+                st.text_input(
+                    "UPI ID",
+                    placeholder="example@upi",
+                    help="Prototype field only — no real payment is processed."
+                )
+
+                st.caption(
+                    "🔐 Your UPI/payment details are not displayed publicly."
+                )
+
+            else:
+
+                st.info(
+                    "You can pay the amount to the student/helper when the item is handed over."
+                )
+
+            if st.button(
+                "🔒 Confirm Secure Order",
+                use_container_width=True,
+                key="confirm_order"
+            ):
+
+                new_order = {
+                    "items": [item["name"] for item in st.session_state.cart],
+                    "amount": grand_total,
+                    "payment": payment_method,
+                    "delivery": delivery_required
+                }
+
+                st.session_state.orders.append(new_order)
+
+                # Demo reward points
+                st.session_state.points += 10
+
+                st.session_state.cart = []
+
+                st.success(
+                    "Order placed successfully! This is a prototype transaction."
+                )
+
+                st.balloons()
+
+                st.session_state.nav = "Home"
+
+                st.info(
+                    "⭐ You earned 10 IBeX Points for completing this prototype transaction."
+                )
+
+                if st.button("Continue Shopping", key="continue_shopping"):
+                    go_to("Marketplace")
+                    st.rerun()
 
 
 # ============================================================
 # HOME PAGE
 # ============================================================
 
-if st.session_state.current_page == "Home":
+elif st.session_state.nav == "Home":
 
-    # HERO
+    # ---------- HERO ----------
 
     st.markdown("""
-    <div class="hero-glass">
+    <div class="hero">
 
         <div class="hero-title">
             Campus life made
@@ -675,9 +789,9 @@ if st.session_state.current_page == "Home":
         </div>
 
         <div class="hero-text">
-            Rent what you need, buy second-hand, earn from unused
-            products, request campus help and reward students who
-            make the community work — all within a verified IBS network.
+            Rent what you need, buy second-hand, earn from unused products,
+            request campus help and reward students who make the community work —
+            all within a verified IBS network.
         </div>
 
         <div class="trust-row">
@@ -690,77 +804,81 @@ if st.session_state.current_page == "Home":
     </div>
     """, unsafe_allow_html=True)
 
+    # ---------- IMPACT BAR ----------
 
-    # ========================================================
-    # LIVE IMPACT METRICS
-    # ========================================================
+    metric1, metric2, metric3, metric4 = st.columns(4)
 
-    m1, m2, m3, m4 = st.columns(4)
+    with metric1:
+        st.markdown("""
+        <div class="metric-card">
+            <div class="metric-number">8</div>
+            <div class="metric-label">Active Demo Listings</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    with m1:
-        st.markdown(
-            f"""
-            <div class="metric-pill">
-                <div class="metric-number">
-                    {len(marketplace_data)}
-                </div>
-                <div class="metric-label">
-                    Active Listings
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    with metric2:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-number">{st.session_state.points}</div>
+            <div class="metric-label">Your IBeX Points</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    with m2:
-        st.markdown(
-            f"""
-            <div class="metric-pill">
-                <div class="metric-number">
-                    {st.session_state.points}
-                </div>
-                <div class="metric-label">
-                    Your IBeX Points
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    with metric3:
+        st.markdown("""
+        <div class="metric-card">
+            <div class="metric-number">100%</div>
+            <div class="metric-label">IBS Verified Concept</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    with m3:
-        st.markdown(
-            """
-            <div class="metric-pill">
-                <div class="metric-number">
-                    100%
-                </div>
-                <div class="metric-label">
-                    Student Verified
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    with metric4:
+        st.markdown("""
+        <div class="metric-card">
+            <div class="metric-number">24/7</div>
+            <div class="metric-label">Community Requests</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    with m4:
-        st.markdown(
-            f"""
-            <div class="metric-pill">
-                <div class="metric-number">
-                    {len(st.session_state.orders)}
-                </div>
-                <div class="metric-label">
-                    Your Orders
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    st.write("")
 
+    # ---------- QUICK ACTIONS ----------
 
-    # ========================================================
-    # FEATURED ITEMS
-    # ========================================================
+    st.markdown(
+        '<div class="section-title">What do you need today?</div>',
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        '<div class="section-subtitle">Choose an IBeX service to get started.</div>',
+        unsafe_allow_html=True
+    )
+
+    qa1, qa2, qa3, qa4 = st.columns(4)
+
+    with qa1:
+        if st.button("🏷️ Browse Marketplace", use_container_width=True):
+            go_to("Marketplace")
+            st.rerun()
+
+    with qa2:
+        if st.button("📦 Request Campus Help", use_container_width=True):
+            go_to("Services")
+            st.rerun()
+
+    with qa3:
+        if st.button("➕ List Something", use_container_width=True):
+            go_to("List Item")
+            st.rerun()
+
+    with qa4:
+        if st.button("⭐ View My Rewards", use_container_width=True):
+            go_to("Community")
+            st.rerun()
+
+    st.write("")
+
+    # ---------- FEATURED LISTINGS ----------
 
     st.markdown(
         '<div class="section-title">Featured on IBeX</div>',
@@ -768,82 +886,42 @@ if st.session_state.current_page == "Home":
     )
 
     st.markdown(
-        '<div class="section-subtitle">'
-        'Explore useful items currently available within the community.'
-        '</div>',
+        '<div class="section-subtitle">Demo listings showing how the marketplace could work.</div>',
         unsafe_allow_html=True
     )
 
+    cols = st.columns(4)
 
-    featured_items = marketplace_data[:4]
+    for index, item in enumerate(items[:4]):
 
-    product_cols = st.columns(4)
-
-
-    for i, item in enumerate(featured_items):
-
-        with product_cols[i]:
-
-            emoji = CATEGORY_EMOJIS.get(
-                item["category"],
-                "📦"
-            )
-
-            badge_class = (
-                "badge-rent"
-                if item["type"] == "Rent"
-                else "badge-sale"
-            )
-
-            badge_text = (
-                "FOR RENT"
-                if item["type"] == "Rent"
-                else "FOR SALE"
-            )
-
-            if item["type"] == "Rent":
-
-                price_display = (
-                    f"₹{item['price']}/day"
-                )
-
-            else:
-
-                price_display = (
-                    f"₹{item['price']}"
-                )
-
+        with cols[index]:
 
             st.markdown(
                 f"""
                 <div class="product-card">
 
-                    <div class="product-image">
-                        {emoji}
+                    <div class="product-icon">
+                        {item["icon"]}
                     </div>
 
-                    <span class="{badge_class}">
-                        {badge_text}
+                    <span class="{badge_class(item["type"])}">
+                        {item["type"]}
                     </span>
 
                     <div class="product-name">
-                        {item['item']}
+                        {item["name"]}
                     </div>
 
-                    <div class="product-price">
-                        {price_display}
+                    <div class="product-detail">
+                        Condition: {item["condition"]}
                     </div>
 
-                    <div class="product-meta">
-                        {item['condition']} condition
-                        <br>
-                        📍 {item['location']}
+                    <div class="product-detail">
+                        📍 {item["block"]}
                     </div>
 
-                    <br>
-
-                    <div class="verified">
-                        ✓ IBS Verified
+                    <div class="price">
+                        ₹{item["price"]:,} / {item["unit"]}
                     </div>
 
                 </div>
@@ -851,21 +929,16 @@ if st.session_state.current_page == "Home":
                 unsafe_allow_html=True
             )
 
-
             if st.button(
                 "View Item",
-                key=f"featured_{item['id']}",
+                key=f"home_view_{item['id']}",
                 use_container_width=True
             ):
-
                 st.session_state.selected_item = item
-                st.session_state.current_page = "Checkout"
+                st.session_state.nav = "Marketplace"
                 st.rerun()
 
-
-    # ========================================================
-    # HOW IT WORKS
-    # ========================================================
+    # ---------- HOW IT WORKS ----------
 
     st.markdown(
         '<div class="section-title">How IBeX Works</div>',
@@ -873,285 +946,236 @@ if st.session_state.current_page == "Home":
     )
 
     st.markdown(
-        '<div class="section-subtitle">'
-        'A simple trusted workflow designed specifically for campus.'
-        '</div>',
+        '<div class="section-subtitle">Simple steps. Safe transactions. Stronger campus community.</div>',
         unsafe_allow_html=True
     )
 
+    s1, s2, s3, s4 = st.columns(4)
 
-    step1, step2, step3, step4 = st.columns(4)
+    steps = [
+        (
+            "1",
+            "Browse & Select",
+            "Find an item, service or campus assistance that fits your need."
+        ),
+        (
+            "2",
+            "Connect & Verify",
+            "Interact only within a verified IBS student community."
+        ),
+        (
+            "3",
+            "Pickup / Delivery",
+            "Collect the item yourself or request convenient campus delivery."
+        ),
+        (
+            "4",
+            "Earn Reward Points",
+            "Help other students and earn IBeX Points for future benefits."
+        )
+    ]
 
+    for column, step in zip([s1, s2, s3, s4], steps):
 
-    with step1:
+        with column:
 
-        st.markdown("""
-        <div class="step-card">
+            st.markdown(
+                f"""
+                <div class="step-card">
 
-            <div class="step-number">1</div>
+                    <div class="step-number">
+                        {step[0]}
+                    </div>
 
-            <div class="step-title">
-                Browse & Select
-            </div>
+                    <div class="step-title">
+                        {step[1]}
+                    </div>
 
-            <div class="step-text">
-                Search products, compare rental or sale options
-                and choose what you need.
-            </div>
+                    <div class="step-text">
+                        {step[2]}
+                    </div>
 
-        </div>
-        """, unsafe_allow_html=True)
-
-
-    with step2:
-
-        st.markdown("""
-        <div class="step-card">
-
-            <div class="step-number">2</div>
-
-            <div class="step-title">
-                Connect & Verify
-            </div>
-
-            <div class="step-text">
-                Interact only with verified IBS students and
-                review trust ratings.
-            </div>
-
-        </div>
-        """, unsafe_allow_html=True)
-
-
-    with step3:
-
-        st.markdown("""
-        <div class="step-card">
-
-            <div class="step-number">3</div>
-
-            <div class="step-title">
-                Pickup / Delivery
-            </div>
-
-            <div class="step-text">
-                Collect the item yourself or request convenient
-                campus delivery.
-            </div>
-
-        </div>
-        """, unsafe_allow_html=True)
-
-
-    with step4:
-
-        st.markdown("""
-        <div class="step-card">
-
-            <div class="step-number">4</div>
-
-            <div class="step-title">
-                Earn Rewards
-            </div>
-
-            <div class="step-text">
-                Complete transactions and help students to earn
-                IBeX reward points.
-            </div>
-
-        </div>
-        """, unsafe_allow_html=True)
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
 
 # ============================================================
 # MARKETPLACE
 # ============================================================
 
-elif st.session_state.current_page == "Marketplace":
+elif st.session_state.nav == "Marketplace":
 
     st.markdown(
-        '<div class="section-title">Marketplace</div>',
+        '<div class="section-title">🛍️ IBeX Marketplace</div>',
         unsafe_allow_html=True
     )
 
     st.markdown(
-        '<div class="section-subtitle">'
-        'Buy second-hand or rent what you only need temporarily.'
-        '</div>',
+        '<div class="section-subtitle">Buy, rent or discover useful products within the IBS community.</div>',
         unsafe_allow_html=True
     )
 
+    # ---------- FILTERS ----------
 
-    search_col, cat_col, type_col = st.columns(
-        [2.2, 1.3, 1.3]
-    )
+    f1, f2, f3 = st.columns([1, 1, 1])
 
-
-    with search_col:
-
-        search = st.text_input(
-            "Search",
-            placeholder="Search calculator, heels, iron, tripod..."
-        )
-
-
-    categories = sorted(
-        list(
-            set(
-                item["category"]
-                for item in marketplace_data
-            )
-        )
-    )
-
-
-    with cat_col:
-
-        category_filter = st.selectbox(
-            "Category",
-            ["All"] + categories
-        )
-
-
-    with type_col:
-
-        type_filter = st.selectbox(
+    with f1:
+        selected_type = st.selectbox(
             "Listing Type",
-            ["All", "Buy", "Rent"]
+            ["All", "FOR RENT", "FOR SALE"]
         )
 
+    with f2:
+        categories = ["All"] + sorted(list(set(item["category"] for item in items)))
 
-    filtered = marketplace_data.copy()
+        selected_category = st.selectbox(
+            "Category",
+            categories
+        )
 
+    with f3:
+        search = st.text_input(
+            "🔎 Search",
+            placeholder="Search items..."
+        )
+
+    filtered_items = items.copy()
+
+    if selected_type != "All":
+        filtered_items = [
+            item for item in filtered_items
+            if item["type"] == selected_type
+        ]
+
+    if selected_category != "All":
+        filtered_items = [
+            item for item in filtered_items
+            if item["category"] == selected_category
+        ]
 
     if search:
-
-        filtered = [
-            item
-            for item in filtered
-            if search.lower() in item["item"].lower()
+        filtered_items = [
+            item for item in filtered_items
+            if search.lower() in item["name"].lower()
+            or search.lower() in item["category"].lower()
         ]
 
+    st.markdown("---")
 
-    if category_filter != "All":
+    # ---------- SELECTED ITEM ----------
 
-        filtered = [
-            item
-            for item in filtered
-            if item["category"] == category_filter
-        ]
+    if st.session_state.selected_item is not None:
 
+        item = st.session_state.selected_item
 
-    if type_filter != "All":
+        st.markdown(
+            f"""
+            <div class="checkout-card">
 
-        filtered = [
-            item
-            for item in filtered
-            if item["type"] == type_filter
-        ]
+                <div style="font-size:3rem;">
+                    {item["icon"]}
+                </div>
 
+                <h2>{item["name"]}</h2>
 
-    st.write(
-        f"**{len(filtered)} listings found**"
-    )
+                <p style="color:#64748B;">
+                    {item["category"]} • {item["condition"]} • {item["block"]}
+                </p>
 
+                <h2 style="color:#5630A8;">
+                    ₹{item["price"]:,} / {item["unit"]}
+                </h2>
 
-    if len(filtered) == 0:
+                {
+                    f'<p><b>Refundable Security Deposit:</b> ₹{item["deposit"]:,}</p>'
+                    if item["deposit"] > 0
+                    else ""
+                }
 
-        st.info(
-            "No items match your current filters."
+                <p>
+                    🔒 Verified IBS student listing
+                </p>
+
+            </div>
+            """,
+            unsafe_allow_html=True
         )
+
+        action1, action2 = st.columns(2)
+
+        with action1:
+
+            if st.button(
+                "🛒 Add to Order",
+                use_container_width=True,
+                key=f"selected_add_{item['id']}"
+            ):
+
+                add_to_cart(item)
+
+        with action2:
+
+            if st.button(
+                "← Back to Marketplace",
+                use_container_width=True,
+                key="back_marketplace"
+            ):
+
+                st.session_state.selected_item = None
+                st.rerun()
+
+        st.markdown("---")
+
+    # ---------- PRODUCT GRID ----------
+
+    if len(filtered_items) == 0:
+
+        st.warning("No listings match your search.")
 
     else:
 
-        # Product grid: 3 columns
+        for start in range(0, len(filtered_items), 4):
 
-        for start in range(0, len(filtered), 3):
+            row_items = filtered_items[start:start + 4]
 
-            cols = st.columns(3)
-
-            row_items = filtered[
-                start:start + 3
-            ]
+            cols = st.columns(4)
 
             for index, item in enumerate(row_items):
 
                 with cols[index]:
 
-                    emoji = CATEGORY_EMOJIS.get(
-                        item["category"],
-                        "📦"
-                    )
-
-                    badge_class = (
-                        "badge-rent"
-                        if item["type"] == "Rent"
-                        else "badge-sale"
-                    )
-
-                    badge_text = (
-                        "FOR RENT"
-                        if item["type"] == "Rent"
-                        else "FOR SALE"
-                    )
-
-
-                    if item["type"] == "Rent":
-
-                        price_display = (
-                            f"₹{item['price']}/day"
-                        )
-
-                        secondary_price = (
-                            f"₹{item['deposit']} refundable deposit"
-                        )
-
-                    else:
-
-                        price_display = (
-                            f"₹{item['price']}"
-                        )
-
-                        secondary_price = (
-                            "Second-hand purchase"
-                        )
-
-
                     st.markdown(
                         f"""
                         <div class="product-card">
 
-                            <div class="product-image">
-                                {emoji}
+                            <div class="product-icon">
+                                {item["icon"]}
                             </div>
 
-                            <span class="{badge_class}">
-                                {badge_text}
+                            <span class="{badge_class(item["type"])}">
+                                {item["type"]}
                             </span>
 
                             <div class="product-name">
-                                {item['item']}
+                                {item["name"]}
                             </div>
 
-                            <div class="product-price">
-                                {price_display}
+                            <div class="product-detail">
+                                {item["category"]}
                             </div>
 
-                            <div class="product-meta">
-                                {secondary_price}
-                                <br>
-                                Condition: {item['condition']}
-                                <br>
-                                📍 {item['location']}
-                                <br>
-                                ⭐ {item['rating']} •
-                                {item['transactions']} transactions
+                            <div class="product-detail">
+                                Condition: {item["condition"]}
                             </div>
 
-                            <br>
+                            <div class="product-detail">
+                                📍 {item["block"]}
+                            </div>
 
-                            <div class="verified">
-                                ✓ Verified IBS Student
+                            <div class="price">
+                                ₹{item["price"]:,} / {item["unit"]}
                             </div>
 
                         </div>
@@ -1159,1114 +1183,614 @@ elif st.session_state.current_page == "Marketplace":
                         unsafe_allow_html=True
                     )
 
-
-                    action_text = (
-                        "Quick Rent"
-                        if item["type"] == "Rent"
-                        else "Buy Now"
-                    )
-
-
                     if st.button(
-                        action_text,
-                        key=f"product_{item['id']}",
+                        "Quick Add",
+                        key=f"market_add_{item['id']}",
                         use_container_width=True
                     ):
 
-                        st.session_state.selected_item = item
+                        add_to_cart(item)
 
-                        st.session_state.current_page = "Checkout"
-
-                        st.rerun()
-
-
-# ============================================================
-# LIST ITEM
-# ============================================================
-
-elif st.session_state.current_page == "List Item":
-
-    st.markdown(
-        '<div class="section-title">List an Item</div>',
-        unsafe_allow_html=True
+    st.caption(
+        "Prototype note: Marketplace listings shown above are demonstration data and do not represent real transactions."
     )
-
-    st.markdown(
-        '<div class="section-subtitle">'
-        'Sell something you no longer use or earn by lending it.'
-        '</div>',
-        unsafe_allow_html=True
-    )
-
-
-    st.info(
-        "IBeX Freemium: initial listings are free. "
-        "Higher-volume sellers can later upgrade to listing plans."
-    )
-
-
-    form_left, form_right = st.columns(2)
-
-
-    with form_left:
-
-        item_name = st.text_input(
-            "Item Name",
-            placeholder="Example: Black formal dress"
-        )
-
-
-        category = st.selectbox(
-            "Category",
-            [
-                "Academic",
-                "Fashion",
-                "Electronics",
-                "Hostel Utility",
-                "Personal Care",
-                "Sports",
-                "Bags",
-                "Event / Function",
-                "Other"
-            ]
-        )
-
-
-        listing_type = st.radio(
-            "Listing Type",
-            [
-                "Sell",
-                "Lend / Rent"
-            ]
-        )
-
-
-        condition = st.selectbox(
-            "Condition",
-            [
-                "Excellent",
-                "Good",
-                "Fair"
-            ]
-        )
-
-
-    with form_right:
-
-        price = st.number_input(
-            "Selling Price / Rental Fee per Day (₹)",
-            min_value=0,
-            value=50
-        )
-
-
-        deposit = 0
-
-
-        if listing_type == "Lend / Rent":
-
-            deposit = st.number_input(
-                "Refundable Security Deposit (₹)",
-                min_value=0,
-                value=200
-            )
-
-
-        location_option = st.selectbox(
-            "Hostel Block",
-            HOSTEL_BLOCKS
-            + ["Other / Enter Manually"]
-        )
-
-
-        if location_option == "Other / Enter Manually":
-
-            location = st.text_input(
-                "Enter Location",
-                placeholder="Enter hostel / block"
-            )
-
-        else:
-
-            location = location_option
-
-
-    description = st.text_area(
-        "Description",
-        placeholder=(
-            "Add size, condition, accessories, "
-            "usage details or anything the buyer/renter should know."
-        )
-    )
-
-
-    if st.button(
-        "Publish Listing",
-        type="primary"
-    ):
-
-        if not item_name.strip():
-
-            st.warning(
-                "Please enter the item name."
-            )
-
-
-        elif not location.strip():
-
-            st.warning(
-                "Please enter a valid location."
-            )
-
-
-        else:
-
-            new_listing = {
-
-                "id":
-                    "L"
-                    + str(
-                        1000
-                        + len(
-                            st.session_state.custom_listings
-                        )
-                    ),
-
-                "item":
-                    item_name,
-
-                "category":
-                    category,
-
-                "type":
-                    (
-                        "Rent"
-                        if listing_type == "Lend / Rent"
-                        else "Buy"
-                    ),
-
-                "price":
-                    price,
-
-                "deposit":
-                    deposit,
-
-                "condition":
-                    condition,
-
-                "rating":
-                    5.0,
-
-                "seller":
-                    "You",
-
-                "location":
-                    location,
-
-                "transactions":
-                    0
-            }
-
-
-            st.session_state.custom_listings.append(
-                new_listing
-            )
-
-
-            st.success(
-                f"✅ {item_name} is now listed on IBeX!"
-            )
-
-            st.balloons()
-
-
-# ============================================================
-# CHECKOUT
-# ============================================================
-
-elif st.session_state.current_page == "Checkout":
-
-    st.markdown(
-        '<div class="section-title">Secure Checkout</div>',
-        unsafe_allow_html=True
-    )
-
-
-    item = st.session_state.selected_item
-
-
-    if item is None:
-
-        st.info(
-            "Select an item from the marketplace first."
-        )
-
-        st.button(
-            "Go to Marketplace",
-            on_click=navigate,
-            args=("Marketplace",)
-        )
-
-
-    else:
-
-        product_col, checkout_col = st.columns(
-            [1.1, 1.5]
-        )
-
-
-        # ====================================================
-        # ITEM DETAILS
-        # ====================================================
-
-        with product_col:
-
-            emoji = CATEGORY_EMOJIS.get(
-                item["category"],
-                "📦"
-            )
-
-
-            st.markdown(
-                f"""
-                <div class="product-card">
-
-                    <div class="product-image">
-                        {emoji}
-                    </div>
-
-                    <div class="product-name">
-                        {item['item']}
-                    </div>
-
-                    <div class="product-meta">
-                        Condition: {item['condition']}
-                        <br>
-                        📍 {item['location']}
-                        <br>
-                        ⭐ {item['rating']} rating
-                    </div>
-
-                    <br>
-
-                    <div class="verified">
-                        ✓ Verified IBS Seller
-                    </div>
-
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-
-        # ====================================================
-        # CHECKOUT FORM
-        # ====================================================
-
-        with checkout_col:
-
-            if item["type"] == "Rent":
-
-                days = st.number_input(
-                    "Rental Duration (Days)",
-                    min_value=1,
-                    max_value=30,
-                    value=1
-                )
-
-                base_price = (
-                    item["price"]
-                    * days
-                )
-
-                deposit = item["deposit"]
-
-
-            else:
-
-                days = 0
-
-                base_price = item["price"]
-
-                deposit = 0
-
-
-            delivery_option = st.radio(
-                "Delivery",
-                [
-                    "Self Pickup — FREE",
-                    "IBeX Campus Delivery — ₹20"
-                ]
-            )
-
-
-            delivery_fee = (
-                20
-                if "₹20" in delivery_option
-                else 0
-            )
-
-
-            total = (
-                base_price
-                + deposit
-                + delivery_fee
-            )
-
-
-            st.markdown("### Order Summary")
-
-
-            if item["type"] == "Rent":
-
-                st.write(
-                    f"Rental ({days} day(s)): "
-                    f"**₹{base_price}**"
-                )
-
-                st.write(
-                    f"Refundable Security Deposit: "
-                    f"**₹{deposit}**"
-                )
-
-            else:
-
-                st.write(
-                    f"Product Price: "
-                    f"**₹{base_price}**"
-                )
-
-
-            st.write(
-                f"Delivery: **₹{delivery_fee}**"
-            )
-
-
-            st.divider()
-
-
-            st.markdown(
-                f"## Total: ₹{total}"
-            )
-
-
-            if item["type"] == "Rent":
-
-                st.success(
-                    f"₹{deposit} is refundable after "
-                    "the item is safely returned."
-                )
-
-
-            # =================================================
-            # PAYMENT
-            # =================================================
-
-            st.markdown("### Payment Method")
-
-
-            payment_method = st.radio(
-                "Select Payment",
-                [
-                    "📱 UPI / GPay / PhonePe",
-                    "💳 Card",
-                    "💵 Cash on Delivery"
-                ]
-            )
-
-
-            if "UPI" in payment_method:
-
-                st.markdown("""
-                <div class="secure-box">
-                    🔐 <b>Secure UPI Checkout</b><br><br>
-                    In the live platform, payment is processed by
-                    an authorised gateway. Payment credentials are
-                    never shown to another IBeX user.
-                </div>
-                """, unsafe_allow_html=True)
-
-
-                st.text_input(
-                    "Prototype UPI ID",
-                    placeholder="••••••@upi",
-                    type="password"
-                )
-
-
-                st.caption(
-                    "Prototype mode — no real money is transferred."
-                )
-
-
-            elif "Card" in payment_method:
-
-                st.markdown("""
-                <div class="secure-box">
-                    🔐 <b>Secure Card Checkout</b><br><br>
-                    In production, card details would be captured
-                    and processed directly by the payment gateway.
-                </div>
-                """, unsafe_allow_html=True)
-
-
-                st.caption(
-                    "No actual card information is required "
-                    "for this prototype."
-                )
-
-
-            else:
-
-                st.markdown("""
-                <div class="secure-box">
-                    💵 <b>Cash on Delivery</b><br><br>
-                    Pay when the item is handed over.
-                </div>
-                """, unsafe_allow_html=True)
-
-
-            if "Cash" in payment_method:
-
-                payment_button = (
-                    f"Confirm COD — ₹{total}"
-                )
-
-            else:
-
-                payment_button = (
-                    f"Secure Test Payment — ₹{total}"
-                )
-
-
-            if st.button(
-                payment_button,
-                type="primary",
-                use_container_width=True
-            ):
-
-                order_id = (
-                    "IBX-"
-                    + datetime.now().strftime("%y%m%d")
-                    + "-"
-                    + str(uuid.uuid4())[:6].upper()
-                )
-
-
-                if "Cash" in payment_method:
-
-                    payment_status = "Cash on Delivery"
-
-                else:
-
-                    payment_status = "Test Payment Successful"
-
-
-                order = {
-
-                    "Order ID": order_id,
-
-                    "Item": item["item"],
-
-                    "Type": item["type"],
-
-                    "Amount": total,
-
-                    "Payment": payment_status,
-
-                    "Delivery": delivery_option,
-
-                    "Status": "Confirmed"
-                }
-
-
-                st.session_state.orders.append(
-                    order
-                )
-
-                st.session_state.points += 10
-
-
-                st.success(
-                    "✅ Order confirmed!"
-                )
-
-                st.balloons()
-
-
-                st.markdown(
-                    f"**Order ID:** `{order_id}`"
-                )
-
-                st.write(
-                    f"Payment: **{payment_status}**"
-                )
-
-                st.write(
-                    f"Total: **₹{total}**"
-                )
-
-                st.info(
-                    "⭐ You earned 10 IBeX Points."
-                )
-
-                st.caption(
-                    "Prototype transaction. "
-                    "No real payment has been processed."
-                )
-
-
-# ============================================================
-# ORDERS
-# ============================================================
-
-elif st.session_state.current_page == "Orders":
-
-    st.markdown(
-        '<div class="section-title">My Orders</div>',
-        unsafe_allow_html=True
-    )
-
-
-    if len(st.session_state.orders) == 0:
-
-        st.info(
-            "You haven't placed any orders yet."
-        )
-
-
-    else:
-
-        for order in reversed(
-            st.session_state.orders
-        ):
-
-            st.markdown(
-                f"""
-                <div class="info-card">
-
-                    <b>{order['Item']}</b>
-
-                    <br><br>
-
-                    🆔 {order['Order ID']}
-                    <br>
-                    💰 ₹{order['Amount']}
-                    <br>
-                    💳 {order['Payment']}
-                    <br>
-                    🚚 {order['Delivery']}
-                    <br>
-                    ✅ {order['Status']}
-
-                </div>
-                <br>
-                """,
-                unsafe_allow_html=True
-            )
 
 
 # ============================================================
 # SERVICES
 # ============================================================
 
-elif st.session_state.current_page == "Services":
+elif st.session_state.nav == "Services":
 
     st.markdown(
-        '<div class="section-title">Campus Services</div>',
+        '<div class="section-title">⚡ Campus Services</div>',
         unsafe_allow_html=True
     )
 
     st.markdown(
-        '<div class="section-subtitle">'
-        'Request help or earn by assisting another IBS student.'
-        '</div>',
+        '<div class="section-subtitle">Small problems. Simple campus-to-campus solutions.</div>',
         unsafe_allow_html=True
     )
 
+    service1, service2, service3 = st.columns(3)
 
-    tab1, tab2, tab3 = st.tabs(
-        [
-            "🚚 Request Delivery",
-            "🤝 Help Someone",
-            "🏥 Essential Assistance"
-        ]
+    with service1:
+
+        st.markdown("""
+        <div class="service-card">
+
+            <div class="service-icon">📦</div>
+
+            <div class="service-title">
+                Parcel Pickup
+            </div>
+
+            <div class="service-text">
+                Ask another verified student to collect your
+                Amazon, Flipkart or quick-commerce parcel from
+                the IBS main gate.
+            </div>
+
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.write("")
+
+        if st.button(
+            "Request Parcel Pickup",
+            use_container_width=True,
+            key="parcel_request"
+        ):
+            st.session_state.nav = "Request Help"
+            st.rerun()
+
+    with service2:
+
+        st.markdown("""
+        <div class="service-card">
+
+            <div class="service-icon">💊</div>
+
+            <div class="service-title">
+                Medical Assistance
+            </div>
+
+            <div class="service-text">
+                Request basic campus assistance or access to
+                essential products listed by students.
+            </div>
+
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.write("")
+
+        if st.button(
+            "Request Medical Help",
+            use_container_width=True,
+            key="medical_request"
+        ):
+            st.session_state.nav = "Request Help"
+            st.rerun()
+
+    with service3:
+
+        st.markdown("""
+        <div class="service-card">
+
+            <div class="service-icon">🤝</div>
+
+            <div class="service-title">
+                Student Assistance
+            </div>
+
+            <div class="service-text">
+                Need something small done on campus?
+                Post a request and reward another student
+                for helping you.
+            </div>
+
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.write("")
+
+        if st.button(
+            "Request Campus Help",
+            use_container_width=True,
+            key="help_request"
+        ):
+            st.session_state.nav = "Request Help"
+            st.rerun()
+
+    st.markdown("---")
+
+    # ---------- HELP REQUEST FORM ----------
+
+    st.markdown(
+        '<div class="section-title">Post a Help Request</div>',
+        unsafe_allow_html=True
     )
 
+    h1, h2 = st.columns(2)
 
-    # ========================================================
-    # DELIVERY REQUEST
-    # ========================================================
-
-    with tab1:
+    with h1:
 
         request_type = st.selectbox(
-            "Service",
+            "What do you need help with?",
             [
                 "Parcel Pickup",
+                "Medical / Essential Item",
                 "Item Pickup",
-                "Document Delivery",
-                "Food / Snack Pickup",
-                "Other Assistance"
+                "Food / Snack Assistance",
+                "Other Campus Help"
             ]
         )
 
-
-        pickup = st.text_input(
-            "Pickup Location",
-            placeholder="Example: IBS Main Gate"
+        description = st.text_area(
+            "Describe your request",
+            placeholder="Example: Please collect my parcel from the main gate."
         )
 
+    with h2:
 
-        drop_option = st.selectbox(
-            "Delivery Location",
-            HOSTEL_BLOCKS
-            + ["Other / Enter Manually"]
+        hostel_blocks = [
+            "ABCD Block",
+            "QRS Block",
+            "U-Block",
+            "T-Block",
+            "G-Block",
+            "H-Block",
+            "B1-Block",
+            "B2-Block",
+            "D1-Block",
+            "D2-Block",
+            "S1-Block",
+            "S2-Block",
+            "Other / Enter Manually"
+        ]
+
+        selected_block = st.selectbox(
+            "Your Hostel Block",
+            hostel_blocks
         )
 
+        if selected_block == "Other / Enter Manually":
 
-        if drop_option == "Other / Enter Manually":
+            selected_block = st.text_input(
+                "Enter your hostel block"
+            )
 
-            drop = st.text_input(
-                "Enter Delivery Location"
+        reward = st.selectbox(
+            "Suggested helper reward",
+            [
+                "10 IBeX Points",
+                "20 IBeX Points",
+                "30 IBeX Points",
+                "₹10",
+                "₹20",
+                "₹25"
+            ]
+        )
+
+    if st.button(
+        "Post Request",
+        use_container_width=True,
+        key="post_help"
+    ):
+
+        if description.strip() == "":
+            st.warning("Please describe your request first.")
+
+        else:
+
+            st.success(
+                f"Your {request_type} request has been posted successfully!"
+            )
+
+            st.info(
+                f"Suggested reward: {reward} • Location: {selected_block}"
+            )
+
+
+# ============================================================
+# LIST ITEM
+# ============================================================
+
+elif st.session_state.nav == "List Item":
+
+    st.markdown(
+        '<div class="section-title">＋ List an Item</div>',
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        '<div class="section-subtitle">Turn unused products into value for another student.</div>',
+        unsafe_allow_html=True
+    )
+
+    st.markdown("""
+    <div class="community-box">
+
+        <b>Freemium Listing Model</b><br><br>
+
+        Your first <b>3 listings</b> are free.<br>
+        After the free allowance, additional listings can be
+        unlocked through the IBeX subscription plan.
+
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.write("")
+
+    l1, l2 = st.columns(2)
+
+    with l1:
+
+        item_name = st.text_input(
+            "Item Name",
+            placeholder="Example: Formal blazer"
+        )
+
+        listing_type = st.selectbox(
+            "What do you want to do?",
+            [
+                "Sell",
+                "Lend / Rent"
+            ]
+        )
+
+        category = st.selectbox(
+            "Category",
+            [
+                "Clothing",
+                "Shoes",
+                "Bags / Accessories",
+                "Hostel Utilities",
+                "Sports Equipment",
+                "Electronics",
+                "Books / Study Material",
+                "Other"
+            ]
+        )
+
+        condition = st.selectbox(
+            "Condition",
+            [
+                "New",
+                "Excellent",
+                "Very Good",
+                "Good",
+                "Fair"
+            ]
+        )
+
+    with l2:
+
+        hostel_blocks = [
+            "ABCD Block",
+            "QRS Block",
+            "U-Block",
+            "T-Block",
+            "G-Block",
+            "H-Block",
+            "B1-Block",
+            "B2-Block",
+            "D1-Block",
+            "D2-Block",
+            "S1-Block",
+            "S2-Block",
+            "Other / Enter Manually"
+        ]
+
+        listing_block = st.selectbox(
+            "Pickup / Item Location",
+            hostel_blocks,
+            key="listing_block"
+        )
+
+        if listing_block == "Other / Enter Manually":
+
+            listing_block = st.text_input(
+                "Enter block/location",
+                key="manual_listing_block"
+            )
+
+        price = st.number_input(
+            "Price (₹)",
+            min_value=0,
+            max_value=100000,
+            value=50,
+            step=10
+        )
+
+        if listing_type == "Lend / Rent":
+
+            deposit = st.number_input(
+                "Refundable Security Deposit (₹)",
+                min_value=0,
+                max_value=100000,
+                value=100,
+                step=10
             )
 
         else:
 
-            drop = drop_option
+            deposit = 0
 
+    description = st.text_area(
+        "Item Description",
+        placeholder="Describe the item, condition and any important details..."
+    )
 
-        fee = st.number_input(
-            "Helper Reward (₹)",
-            min_value=10,
-            max_value=200,
-            value=20
-        )
+    st.markdown("---")
 
+    if st.button(
+        "Publish Listing",
+        use_container_width=True,
+        key="publish_listing"
+    ):
 
-        if st.button(
-            "Post Request"
-        ):
+        if item_name.strip() == "":
+            st.warning("Please enter an item name.")
 
-            if not pickup.strip():
+        elif listing_block.strip() == "":
+            st.warning("Please enter your location.")
 
-                st.warning(
-                    "Please enter the pickup location."
-                )
-
-
-            elif not drop.strip():
-
-                st.warning(
-                    "Please enter the delivery location."
-                )
-
-
-            else:
-
-                request = {
-
-                    "Task": request_type,
-
-                    "Pickup": pickup,
-
-                    "Drop": drop,
-
-                    "Reward": fee,
-
-                    "Status": "Open"
-                }
-
-
-                st.session_state.help_requests.append(
-                    request
-                )
-
-
-                st.success(
-                    "✅ Your request is now visible "
-                    "to verified IBeX helpers."
-                )
-
-
-    # ========================================================
-    # HELP SOMEONE
-    # ========================================================
-
-    with tab2:
-
-        sample_tasks = [
-
-            {
-                "Task": "Parcel Pickup",
-                "Pickup": "IBS Main Gate",
-                "Drop": "ABCD Block",
-                "Reward": 20
-            },
-
-            {
-                "Task": "Snack Pickup",
-                "Pickup": "Campus Store",
-                "Drop": "QRS Block",
-                "Reward": 15
-            }
-
-        ]
-
-
-        all_tasks = (
-            sample_tasks
-            + st.session_state.help_requests
-        )
-
-
-        for i, task in enumerate(all_tasks):
-
-            st.markdown(
-                f"""
-                <div class="info-card">
-
-                    <span class="badge-help">
-                        OPEN REQUEST
-                    </span>
-
-                    <br><br>
-
-                    <b>{task['Task']}</b>
-
-                    <br><br>
-
-                    📍 {task['Pickup']}
-                    → {task['Drop']}
-
-                    <br>
-
-                    💰 Reward:
-                    <b>₹{task['Reward']}</b>
-
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-
-            if st.button(
-                "Accept Task",
-                key=f"service_task_{i}"
-            ):
-
-                st.session_state.points += 30
-
-                st.success(
-                    "Task accepted!"
-                )
-
-                st.info(
-                    "⭐ 30 IBeX Points earned "
-                    "in prototype mode."
-                )
-
-
-            st.write("")
-
-
-    # ========================================================
-    # ESSENTIAL HELP
-    # ========================================================
-
-    with tab3:
-
-        st.markdown("""
-        <div class="warning-box">
-            IBeX supports basic campus assistance.
-            Prescription medicines and regulated products
-            would require appropriate institutional and
-            legal controls in a live implementation.
-        </div>
-        """, unsafe_allow_html=True)
-
-
-        st.write("")
-
-
-        need = st.selectbox(
-            "What do you need?",
-            [
-                "Sanitary products",
-                "ORS / hydration supplies",
-                "Bandage / basic first aid",
-                "Thermometer",
-                "Basic essential item",
-                "Help reaching campus medical support"
-            ]
-        )
-
-
-        urgency = st.radio(
-            "Urgency",
-            [
-                "Normal",
-                "Urgent"
-            ]
-        )
-
-
-        helper_reward = st.number_input(
-            "Helper Reward (₹)",
-            min_value=0,
-            max_value=200,
-            value=20
-        )
-
-
-        if st.button(
-            "Request Assistance"
-        ):
+        else:
 
             st.success(
-                f"✅ Request posted for {need}."
+                f"🎉 {item_name} has been listed successfully!"
             )
 
             st.info(
-                "Only verified IBS users can respond."
+                "Prototype message: In the live platform, this listing would become visible to verified IBS students."
             )
 
 
 # ============================================================
-# COMMUNITY
+# REQUEST HELP PAGE
 # ============================================================
 
-elif st.session_state.current_page == "Community":
+elif st.session_state.nav == "Request Help":
 
     st.markdown(
-        '<div class="section-title">IBeX Community</div>',
+        '<div class="section-title">🤝 Request Campus Help</div>',
         unsafe_allow_html=True
     )
 
     st.markdown(
-        '<div class="section-subtitle">'
-        'Help others, build trust and earn rewards.'
-        '</div>',
+        '<div class="section-subtitle">Post a small task and let another student earn from helping you.</div>',
         unsafe_allow_html=True
     )
 
+    request = st.text_input(
+        "What do you need?",
+        placeholder="Example: Pick up my parcel from the main gate"
+    )
 
-    c1, c2, c3 = st.columns(3)
+    hostel_blocks = [
+        "ABCD Block",
+        "QRS Block",
+        "U-Block",
+        "T-Block",
+        "G-Block",
+        "H-Block",
+        "B1-Block",
+        "B2-Block",
+        "D1-Block",
+        "D2-Block",
+        "S1-Block",
+        "S2-Block",
+        "Other / Enter Manually"
+    ]
+
+    block = st.selectbox(
+        "Delivery / Pickup Block",
+        hostel_blocks,
+        key="request_help_block"
+    )
+
+    if block == "Other / Enter Manually":
+
+        block = st.text_input(
+            "Enter your block",
+            key="manual_help_block"
+        )
+
+    reward_type = st.radio(
+        "How would you like to reward the helper?",
+        [
+            "IBeX Points",
+            "Cash / Digital Payment"
+        ]
+    )
+
+    if reward_type == "IBeX Points":
+
+        reward_amount = st.selectbox(
+            "Points",
+            [
+                "10 Points",
+                "20 Points",
+                "30 Points",
+                "50 Points"
+            ]
+        )
+
+    else:
+
+        reward_amount = st.selectbox(
+            "Amount",
+            [
+                "₹10",
+                "₹15",
+                "₹20",
+                "₹25"
+            ]
+        )
+
+    if st.button(
+        "Post Help Request",
+        use_container_width=True,
+        key="post_help_request_page"
+    ):
+
+        if request.strip() == "":
+            st.warning("Please describe what you need.")
+
+        else:
+
+            st.success("Your request is now visible to the IBeX community.")
+
+            st.info(
+                f"📍 {block} • Reward: {reward_amount}"
+            )
 
 
-    with c1:
+# ============================================================
+# COMMUNITY PAGE
+# ============================================================
+
+elif st.session_state.nav == "Community":
+
+    st.markdown(
+        '<div class="section-title">⭐ IBeX Community</div>',
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        '<div class="section-subtitle">The more you contribute, the more you earn.</div>',
+        unsafe_allow_html=True
+    )
+
+    # ---------- POINTS ----------
+
+    points_col1, points_col2 = st.columns([1, 1])
+
+    with points_col1:
 
         st.markdown(
             f"""
-            <div class="metric-pill">
-                <div class="metric-number">
-                    {st.session_state.points}
+            <div class="community-box">
+
+                <div style="font-size:0.9rem;color:#64748B;">
+                    YOUR CURRENT BALANCE
                 </div>
-                <div class="metric-label">
-                    Your Points
+
+                <div style="font-size:3rem;font-weight:800;color:#5630A8;">
+                    ⭐ {st.session_state.points}
                 </div>
+
+                <div style="color:#64748B;">
+                    IBeX Points
+                </div>
+
             </div>
             """,
             unsafe_allow_html=True
         )
 
-
-    with c2:
+    with points_col2:
 
         st.markdown("""
-        <div class="metric-pill">
-            <div class="metric-number">
-                4.8 ⭐
-            </div>
-            <div class="metric-label">
-                Community Rating
-            </div>
+        <div class="community-box">
+
+            <b>How can you earn points?</b><br><br>
+
+            🛒 Complete purchases<br>
+            🏠 Complete rentals<br>
+            📦 Help with parcel pickup<br>
+            💊 Assist with essential needs<br>
+            ⭐ Receive positive reviews<br>
+            🔄 Complete successful returns
+
         </div>
         """, unsafe_allow_html=True)
 
+    st.markdown("---")
 
-    with c3:
-
-        st.markdown("""
-        <div class="metric-pill">
-            <div class="metric-number">
-                Trusted
-            </div>
-            <div class="metric-label">
-                Member Status
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
+    # ---------- REWARD TABLE ----------
 
     st.markdown(
-        '<div class="section-title">Earn Points</div>',
+        '<div class="section-title">Reward System</div>',
         unsafe_allow_html=True
     )
 
-
-    points_df = pd.DataFrame({
-
+    reward_df = pd.DataFrame({
         "Activity": [
-            "Successful Purchase / Rental",
-            "Complete Parcel Pickup",
-            "Help with Essential Request",
-            "Successful Lending",
-            "Return Rental On Time",
-            "Positive Review"
+            "Successful Purchase",
+            "Successful Rental",
+            "Parcel Pickup",
+            "Successful Return",
+            "Helpful Review"
         ],
-
-        "Points": [
-            "+10",
+        "IBeX Points": [
+            "+50",
             "+30",
-            "+40",
             "+20",
-            "+30",
+            "+40",
             "+10"
         ]
-
     })
 
-
     st.dataframe(
-        points_df,
+        reward_df,
         use_container_width=True,
         hide_index=True
     )
 
+    # ---------- MATPLOTLIB ----------
 
     st.markdown(
-        '<div class="section-title">Redeem Rewards</div>',
+        '<div class="section-title">Prototype Marketplace Mix</div>',
         unsafe_allow_html=True
     )
 
-
-    reward_choice = st.selectbox(
-        "Choose Reward",
-        [
-            "₹20 Delivery Discount — 500 Points",
-            "1 Free Listing — 750 Points",
-            "Priority Listing — 1000 Points"
-        ]
+    st.caption(
+        "Demonstration chart based on the prototype listings — not real transaction data."
     )
 
+    category_counts = pd.Series(
+        [item["category"] for item in items]
+    ).value_counts()
 
-    if st.button(
-        "Redeem Reward"
-    ):
+    fig, ax = plt.subplots(figsize=(10, 4))
 
-        st.info(
-            "Prototype demonstration: "
-            "the selected benefit would be "
-            "applied to the user's account."
-        )
-
-
-# ============================================================
-# PROFILE
-# ============================================================
-
-elif st.session_state.current_page == "Profile":
-
-    st.markdown(
-        '<div class="section-title">My IBeX Profile</div>',
-        unsafe_allow_html=True
+    ax.bar(
+        category_counts.index,
+        category_counts.values
     )
 
+    ax.set_xlabel("Category")
+    ax.set_ylabel("Number of Demo Listings")
+    ax.set_title("IBeX Prototype Listing Mix")
 
-    profile_left, profile_right = st.columns(
-        [1, 1.6]
+    plt.xticks(
+        rotation=35,
+        ha="right"
     )
 
+    plt.tight_layout()
 
-    with profile_left:
-
-        st.markdown("""
-        <div class="info-card">
-
-            <div style="
-                width:75px;
-                height:75px;
-                background:#EDE9FE;
-                border-radius:50%;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                font-size:2rem;
-                margin-bottom:15px;
-            ">
-                👤
-            </div>
-
-            <h3>IBX Student 001</h3>
-
-            <div class="verified">
-                ✓ IBS Verified
-            </div>
-
-            <br>
-
-            ⭐ 4.8 Rating
-
-            <br>
-
-            🔄 16 Successful Transactions
-
-            <br>
-
-            🏆 Trusted Member
-
-        </div>
-        """, unsafe_allow_html=True)
-
-
-    with profile_right:
-
-        st.markdown("### Trust & Privacy")
-
-        st.write(
-            "✅ IBS-only verified access"
-        )
-
-        st.write(
-            "✅ Masked user identity before transaction"
-        )
-
-        st.write(
-            "✅ Ratings and reviews"
-        )
-
-        st.write(
-            "✅ OTP-based handover verification"
-        )
-
-        st.write(
-            "✅ Refundable rental security deposits"
-        )
-
-        st.write(
-            "✅ Secure payment processing"
-        )
-
-        st.write(
-            "✅ Payment details hidden from other users"
-        )
-
-        st.write(
-            "✅ Community accountability"
-        )
+    st.pyplot(fig)
 
 
 # ============================================================
 # FOOTER
 # ============================================================
 
-st.markdown("---")
-
 st.markdown("""
 <div class="footer">
-    IBeX — IBS Exchange • Campus Marketplace Prototype
-    <br>
-    Secure • Sustainable • Community Driven
+
+    <b>IBeX</b> • One Campus. One Platform. Everything You Need.<br>
+
+    Built as a Managing Platform Business prototype |
+    IFHE Hyderabad
+
+    <br><br>
+
+    🔒 IBS Verified Community • 🌱 Reuse • ⭐ Rewards
+
 </div>
 """, unsafe_allow_html=True)
