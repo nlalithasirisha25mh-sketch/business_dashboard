@@ -223,7 +223,7 @@ if "otp_verified" not in st.session_state:
 # AUTHENTICATION & AUTHORIZATION
 # ============================================================
 
-ALLOWED_DOMAIN = "@ibs.edu"
+ALLOWED_DOMAIN = "@ibsindia.org"
 ACCESS_ERROR = "Access restricted: Please sign in with your official IBS email ID."
 
 
@@ -232,7 +232,7 @@ def is_allowed_email(email: str) -> bool:
     if not email:
         return False
     email = email.strip().lower()
-    return bool(re.fullmatch(r"[a-z0-9._%+-]+@ibs\.edu", email))
+    return bool(re.fullmatch(r"[a-z0-9._%+-]+@ibsindia\.org", email))
 
 
 def get_oidc_user():
@@ -352,7 +352,7 @@ server_metadata_url = "https://accounts.google.com/.well-known/openid-configurat
 
         st.markdown("---")
         st.markdown("**Fallback: IBS email verification**")
-        email = st.text_input("Official IBS email", placeholder="name@ibs.edu")
+        email = st.text_input("Official IBS email", placeholder="name@ibsindia.org")
         if st.button("Send email OTP", use_container_width=True):
             normalized = email.strip().lower()
             if not is_allowed_email(normalized):
