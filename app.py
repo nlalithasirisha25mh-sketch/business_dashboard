@@ -218,6 +218,9 @@ if "otp_email" not in st.session_state:
 if "otp_verified" not in st.session_state:
     st.session_state.otp_verified = False
 
+if "auth_error" not in st.session_state:
+    st.session_state.auth_error = None
+
 
 # ============================================================
 # AUTHENTICATION & AUTHORIZATION
@@ -263,40 +266,89 @@ def oidc_provider_configured(provider: str) -> bool:
 
 
 def send_ibs_otp(email: str) -> bool:
-    """Send a one-time code through configured SMTP. No email is sent if SMTP is not configured."""
+    """Send a one-time code through configured SMTP and retain a useful diagnostic on failure."""
+    st.session_state.auth_error = None
     try:
         email_cfg = st.secrets.get("email", {})
-        host = email_cfg.get("smtp_host")
-        port = int(email_cfg.get("smtp_port", 587))
-        username = email_cfg.get("smtp_username")
-        password = email_cfg.get("smtp_password")
-        sender = email_cfg.get("sender_email", username)
-        if not all([host, username, password, sender]):
-            return False
+
+        # Read the exact keys expected by the IBeX deployment secrets.
+        host = str(email_cfg.get("smtp_host", "")).strip()
+        username = str(email_cfg.get("smtp_username", "")).strip()
+        password = str(email_cfg.get("smtp_password", "")).strip()
+        sender = str(email_cfg.get("sender_email", username)).strip()
+
+        try:
+            port = int(email_cfg.get("smtp_port", 587))
+        except (TypeError, ValueError):
+            raise ValueError("smtp_port must be a number, normally 587 for STARTTLS.")
+
+        missing = []
+        if not host:
+            missing.append("smtp_host")
+        if not username:
+            missing.append("smtp_username")
+        if not password:
+            missing.append("smtp_password")
+        if not sender:
+            missing.append("sender_email")
+
+        if missing:
+            raise ValueError(
+                "Missing SMTP secret(s): " + ", ".join(missing) +
+                ". Check the [email] section in Streamlit Cloud Secrets."
+            )
 
         otp = f"{secrets.randbelow(1000000):06d}"
         digest = hashlib.sha256(otp.encode()).hexdigest()
-        st.session_state.otp_hash = digest
-        st.session_state.otp_expires = datetime.utcnow() + timedelta(minutes=10)
-        st.session_state.otp_email = email.lower()
 
         msg = EmailMessage()
         msg["Subject"] = "IBeX IBS verification code"
         msg["From"] = sender
         msg["To"] = email
-        msg.set_content(f"Your IBeX verification code is {otp}. It expires in 10 minutes.")
+        msg.set_content(
+            f"Your IBeX verification code is {otp}. It expires in 10 minutes."
+        )
 
+        # Connect, upgrade to STARTTLS, authenticate, then send.
+        # OTP state is saved only after the email has been sent successfully.
         with smtplib.SMTP(host, port, timeout=15) as server:
+            server.ehlo()
             server.starttls()
+            server.ehlo()
             server.login(username, password)
             server.send_message(msg)
+
+        st.session_state.otp_hash = digest
+        st.session_state.otp_expires = datetime.utcnow() + timedelta(minutes=10)
+        st.session_state.otp_email = email.lower()
         return True
+
+    except smtplib.SMTPAuthenticationError:
+        st.session_state.auth_error = (
+            "SMTP authentication failed. Check the sender email and password/app password "
+            "in Streamlit Secrets. For Gmail, use a Google App Password rather than your "
+            "normal Gmail password."
+        )
+    except smtplib.SMTPConnectError as exc:
+        st.session_state.auth_error = (
+            f"Could not connect to the SMTP server ({exc}). Check smtp_host, smtp_port, "
+            "and whether the email provider allows SMTP."
+        )
+    except smtplib.SMTPServerDisconnected as exc:
+        st.session_state.auth_error = (
+            f"The SMTP server disconnected the connection ({exc}). Check the SMTP server "
+            "and STARTTLS settings."
+        )
+    except smtplib.SMTPException as exc:
+        st.session_state.auth_error = f"SMTP error: {exc}"
     except Exception as exc:
-        st.session_state.otp_hash = None
-        st.session_state.otp_expires = None
-        st.session_state.otp_email = None
-        st.session_state.auth_error = f"Unable to send the verification email: {exc}"
-        return False
+        st.session_state.auth_error = f"Unable to send the verification email: {type(exc).__name__}: {exc}"
+
+    # Do not leave an OTP active when sending failed.
+    st.session_state.otp_hash = None
+    st.session_state.otp_expires = None
+    st.session_state.otp_email = None
+    return False
 
 
 def render_login():
@@ -336,8 +388,10 @@ server_metadata_url = "https://accounts.google.com/.well-known/openid-configurat
                 else:
                     try:
                         st.login("google")
-                    except Exception:
-                        st.error("Google sign-in could not be started. Check the Google OIDC settings and OAuth redirect URI in Streamlit Cloud Secrets.")
+                    except Exception as exc:
+                        st.error(
+                            f"Google sign-in could not be started: {type(exc).__name__}: {exc}"
+                        )
         with c2:
             if st.button("Continue with Microsoft", use_container_width=True):
                 if not oidc_provider_configured("microsoft"):
@@ -355,12 +409,13 @@ server_metadata_url = "https://accounts.google.com/.well-known/openid-configurat
         email = st.text_input("Official IBS email", placeholder="name@ibsindia.org")
         if st.button("Send email OTP", use_container_width=True):
             normalized = email.strip().lower()
+            st.session_state.auth_error = None
             if not is_allowed_email(normalized):
                 st.error(ACCESS_ERROR)
             elif send_ibs_otp(normalized):
                 st.success("Verification code sent to your IBS email. It expires in 10 minutes.")
             else:
-                st.error("Email OTP is not configured. Configure the SMTP settings in Streamlit secrets, or use IBS SSO.")
+                st.error(st.session_state.auth_error or "Unable to send the verification email. Check the SMTP settings in Streamlit Secrets.")
 
         if st.session_state.otp_hash and st.session_state.otp_email:
             otp = st.text_input("Enter the 6-digit verification code", max_chars=6)
