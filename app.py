@@ -171,6 +171,31 @@ div.stButton > button[kind="primary"] {
 .pastel-coral { background:#FFF0ED; color:#A84D40; }
 .pastel-butter { background:#FFF8D9; color:#806915; }
 
+
+/* Celebration animations */
+.celebration {
+    position: relative;
+    height: 120px;
+    overflow: hidden;
+    margin: 8px 0 18px 0;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #FFF8E8, #F7F0FF);
+    border: 1px solid rgba(93,60,120,.08);
+}
+.celebration span {
+    position: absolute;
+    bottom: -30px;
+    font-size: 28px;
+    animation: popFloat 1.8s ease-out forwards;
+    opacity: 0;
+}
+@keyframes popFloat {
+    0% { transform: translateY(0) scale(.4) rotate(0deg); opacity: 0; }
+    15% { opacity: 1; }
+    70% { opacity: 1; }
+    100% { transform: translateY(-105px) scale(1.15) rotate(20deg); opacity: 0; }
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -200,6 +225,15 @@ if "custom_listings" not in st.session_state:
 if "help_requests" not in st.session_state:
     st.session_state.help_requests = []
 
+if "essential_requests" not in st.session_state:
+    st.session_state.essential_requests = []
+
+if "notifications" not in st.session_state:
+    st.session_state.notifications = []
+
+if "show_celebration" not in st.session_state:
+    st.session_state.show_celebration = None
+
 # Demo profile: authentication/login has been removed for the prototype.
 # Edit these values if you want the Profile page to display different details.
 if "profile" not in st.session_state:
@@ -213,6 +247,53 @@ if "profile" not in st.session_state:
 
 if "onboarding_complete" not in st.session_state:
     st.session_state.onboarding_complete = True
+
+
+# ============================================================
+# PROTOTYPE NOTIFICATIONS & CELEBRATIONS
+# ============================================================
+
+def add_notification(title, message, kind="info"):
+    st.session_state.notifications.insert(
+        0,
+        {
+            "title": title,
+            "message": message,
+            "kind": kind,
+            "time": datetime.now().strftime("%d %b %Y, %I:%M %p"),
+            "read": False
+        }
+    )
+
+
+def show_celebration(kind):
+    if kind == "stars":
+        symbols = ["⭐", "✨", "🌟", "⭐", "✨", "🌟", "⭐", "✨", "🌟", "⭐"]
+        title = "Request accepted! 🎉"
+        message = "Thank you for helping a fellow IBS student."
+    else:
+        symbols = ["❤️", "💗", "💕", "❤️", "💗", "💕", "❤️", "💗", "💕", "❤️"]
+        title = "Help accepted! 💗"
+        message = "A student is now helping with this essential request."
+
+    positions = [6, 16, 26, 36, 46, 56, 66, 76, 86, 94]
+    delays = [0.0, .12, .24, .36, .48, .60, .72, .84, .96, 1.08]
+
+    spans = "".join(
+        f"<span style='left:{positions[i]}%;animation-delay:{delays[i]}s'>{symbols[i]}</span>"
+        for i in range(len(symbols))
+    )
+
+    st.markdown(
+        f"""
+        <div class="celebration">
+            {spans}
+        </div>
+        <h3>{title}</h3>
+        <p>{message}</p>
+        """,
+        unsafe_allow_html=True
+    )
 
 
 # ============================================================
@@ -292,7 +373,7 @@ marketplace_data = [
     {
         "id": "L004",
         "item": "Electric Iron",
-        "image": "https://images.unsplash.com/photo-1558317374-067fb5f30001?auto=format&fit=crop&w=900&q=80",
+        "image": "https://orientelectric.com/cdn/shop/files/fabrismooth-non-stick-dry-iron-white-orient-electric-1.png?v=1696835084&width=1445",
         "category": "Hostel Utility",
         "type": "Rent",
         "price": 20,
@@ -308,7 +389,7 @@ marketplace_data = [
     {
         "id": "L005",
         "item": "Ethnic Kurta Set",
-        "image": "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=900&q=80",
+        "image": "https://fashor.com/cdn/shop/files/27266_13.jpg?v=1749480577&width=1080",
         "category": "Fashion",
         "type": "Rent",
         "price": 100,
@@ -324,7 +405,7 @@ marketplace_data = [
     {
         "id": "L006",
         "item": "Extension Board",
-        "image": "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=900&q=80",
+        "image": "https://zebronics.com/cdn/shop/files/ZEB-PS4200H-pic1.jpg?v=1751979486&width=1200",
         "category": "Electronics",
         "type": "Buy",
         "price": 300,
@@ -356,7 +437,7 @@ marketplace_data = [
     {
         "id": "L008",
         "item": "Tripod",
-        "image": "https://images.unsplash.com/photo-1606986628253-1f4a5d8a8a1e?auto=format&fit=crop&w=900&q=80",
+        "image": "https://down-ph.img.susercontent.com/file/cn-11134207-820l4-msmkxh0l3j0kc8",
         "category": "Electronics",
         "type": "Rent",
         "price": 40,
@@ -416,7 +497,7 @@ st.markdown(
 
 nav1, nav2, nav3, nav4, nav5 = st.columns(5)
 
-nav6, nav7, nav8, nav9 = st.columns(4)
+nav6, nav7, nav8, nav9, nav10 = st.columns(5)
 
 
 with nav1:
@@ -497,6 +578,24 @@ with nav9:
         use_container_width=True
     ):
         st.session_state.current_page = "Profile"
+        st.rerun()
+
+
+with nav10:
+    unread_count = sum(
+        1 for n in st.session_state.notifications
+        if not n.get("read", False)
+    )
+    notification_label = (
+        f"🔔 Notifications ({unread_count})"
+        if unread_count
+        else "🔔 Notifications"
+    )
+    if st.button(
+        notification_label,
+        use_container_width=True
+    ):
+        st.session_state.current_page = "Notifications"
         st.rerun()
 
 st.markdown("</div>", unsafe_allow_html=True)
@@ -852,7 +951,7 @@ elif st.session_state.current_page == "List an Item":
 
 
     st.info(
-        "🎁 Your initial 3 listings are free. Additional listings require a paid listing plan."
+        "🎁 Your first 3 listings are free. Additional listings require a paid listing plan."
     )
 
 
@@ -1442,6 +1541,14 @@ elif st.session_state.current_page == "Checkout":
                 order
             )
 
+            add_notification(
+                "Order confirmed",
+                f"Your {item['item']} order ({order_id}) is confirmed. Your private seller chat is now open.",
+                "order"
+            )
+
+            st.toast("📦 Order confirmed — private seller chat is open!", icon="📦")
+
             st.session_state.order_chats[order_id] = [
                 {
                     "sender": "IBeX",
@@ -1608,6 +1715,12 @@ elif st.session_state.current_page == "My Orders":
                             }
                         )
 
+                        add_notification(
+                            "Private chat message sent",
+                            f"Your message about {order['Item']} was sent through the IBeX chat.",
+                            "chat"
+                        )
+
                         st.success(
                             "Message sent privately through IBeX."
                         )
@@ -1631,12 +1744,10 @@ elif st.session_state.current_page == "Delivery & Help":
 
     st.title("🚚 Delivery & Campus Help")
 
-
     st.write(
         "Need a parcel collected from the main gate "
         "or an item brought to your hostel?"
     )
-
 
     tab1, tab2 = st.tabs(
         [
@@ -1644,7 +1755,6 @@ elif st.session_state.current_page == "Delivery & Help":
             "🤝 Help Someone"
         ]
     )
-
 
     with tab1:
 
@@ -1659,23 +1769,19 @@ elif st.session_state.current_page == "Delivery & Help":
             ]
         )
 
-
         pickup = st.text_input(
             "📍 Pickup Location",
             placeholder="Example: IBS Main Gate"
         )
 
-
         delivery_blocks = HOSTEL_BLOCKS + [
             "Other / Enter Manually"
         ]
-
 
         drop_option = st.selectbox(
             "📦 Delivery Location",
             delivery_blocks
         )
-
 
         if drop_option == "Other / Enter Manually":
 
@@ -1688,14 +1794,12 @@ elif st.session_state.current_page == "Delivery & Help":
 
             drop = drop_option
 
-
         fee = st.number_input(
             "Helper Reward (₹)",
             min_value=10,
             max_value=200,
             value=20
         )
-
 
         if st.button("📤 Post Request"):
 
@@ -1707,118 +1811,124 @@ elif st.session_state.current_page == "Delivery & Help":
 
             else:
 
-                request = {
-
-                    "Task":
-                        request_type,
-
-                    "Pickup":
-                        pickup,
-
-                    "Drop":
-                        drop,
-
-                    "Reward":
-                        fee,
-
-                    "Status":
-                        "Open"
-                }
-
-
-                st.session_state.help_requests.append(
-                    request
+                request_id = (
+                    "DLV-"
+                    + datetime.now().strftime("%y%m%d")
+                    + "-"
+                    + str(uuid.uuid4())[:5].upper()
                 )
 
+                request = {
+                    "Request ID": request_id,
+                    "Task": request_type,
+                    "Pickup": pickup,
+                    "Drop": drop,
+                    "Reward": fee,
+                    "Status": "Open",
+                    "Requester": st.session_state.profile.get(
+                        "name", "IBS Student"
+                    ),
+                    "Created": datetime.now().strftime(
+                        "%d %b %Y, %I:%M %p"
+                    )
+                }
+
+                st.session_state.help_requests.append(request)
+
+                add_notification(
+                    "Delivery request posted",
+                    f"Your {request_type.lower()} request is now visible to campus helpers.",
+                    "delivery"
+                )
 
                 st.success(
                     "✅ Your request has been posted."
                 )
 
+                st.info(
+                    "🔔 You'll receive an IBeX notification when someone accepts it."
+                )
 
     with tab2:
 
         sample_tasks = [
-
             {
-                "Task":
-                    "Parcel Pickup",
-
-                "Pickup":
-                    "IBS Main Gate",
-
-                "Drop":
-                    "ABCD Block",
-
-                "Reward":
-                    20,
-
-                "Status":
-                    "Open"
+                "Request ID": "DLV-DEMO-01",
+                "Task": "Parcel Pickup",
+                "Pickup": "IBS Main Gate",
+                "Drop": "ABCD Block",
+                "Reward": 20,
+                "Status": "Open",
+                "Requester": "IBX Student 118",
+                "Created": "19 Sep 2026, 05:20 PM"
             },
-
             {
-                "Task":
-                    "Snack Pickup",
-
-                "Pickup":
-                    "Campus Store",
-
-                "Drop":
-                    "QRS Block",
-
-                "Reward":
-                    15,
-
-                "Status":
-                    "Open"
+                "Request ID": "DLV-DEMO-02",
+                "Task": "Snack Pickup",
+                "Pickup": "Campus Store",
+                "Drop": "QRS Block",
+                "Reward": 15,
+                "Status": "Open",
+                "Requester": "IBX Student 241",
+                "Created": "19 Sep 2026, 05:35 PM"
             }
         ]
 
+        all_tasks = sample_tasks + st.session_state.help_requests
 
-        all_tasks = (
-            sample_tasks
-            + st.session_state.help_requests
-        )
+        open_tasks = [
+            task for task in all_tasks
+            if task.get("Status") == "Open"
+        ]
 
+        if not open_tasks:
+            st.info("No open campus-help requests right now.")
 
-        for i, task in enumerate(all_tasks):
+        for i, task in enumerate(open_tasks):
 
             st.markdown(
-                f"### {task['Task']}"
+                f"""
+                <div class="card">
+                    <h3>🚚 {task['Task']}</h3>
+                    <p><b>Requested by:</b> {task['Requester']}</p>
+                    <p>📍 {task['Pickup']} → {task['Drop']}</p>
+                    <p>💰 Student Reward: <b>₹{task['Reward']}</b></p>
+                    <small>Posted: {task['Created']}</small>
+                </div>
+                """,
+                unsafe_allow_html=True
             )
-
-
-            st.write(
-                f"📍 {task['Pickup']} "
-                f"→ {task['Drop']}"
-            )
-
-
-            st.write(
-                f"💰 Student Reward: "
-                f"₹{task['Reward']}"
-            )
-
 
             if st.button(
                 "🤝 Accept Task",
-                key=f"task_{i}"
+                key=f"delivery_accept_{task['Request ID']}"
             ):
+
+                task["Status"] = "Accepted"
+                task["Accepted By"] = st.session_state.profile.get(
+                    "name", "IBS Student"
+                )
 
                 st.session_state.points += 30
 
+                add_notification(
+                    "Delivery help accepted",
+                    f"You accepted {task['Task'].lower()} for {task['Requester']}. +30 IBeX points.",
+                    "delivery"
+                )
+
+                st.toast("⭐ Delivery help accepted — +30 IBeX points!", icon="⭐")
+                st.session_state.show_celebration = "stars"
 
                 st.success(
                     "✅ Task accepted!"
                 )
 
-
                 st.info(
-                    "⭐ You earned 30 IBeX points "
-                    "for helping the community."
+                    "⭐ You earned 30 IBeX points for helping the community."
                 )
 
+                show_celebration("stars")
 
             st.markdown("---")
 
@@ -1831,57 +1941,215 @@ elif st.session_state.current_page == "Essential Assistance":
 
     st.title("🏥 Essential Assistance")
 
-
     st.warning(
         "IBeX is intended for basic campus assistance. "
         "Prescription medicines and regulated medical products "
         "would require appropriate institutional and legal controls."
     )
 
-
-    need = st.selectbox(
-        "What do you need?",
+    tab1, tab2 = st.tabs(
         [
-            "Sanitary products",
-            "ORS / hydration supplies",
-            "Bandage / basic first aid",
-            "Thermometer",
-            "Basic essential item",
-            "Help reaching campus medical support"
+            "🆘 Request Essential Help",
+            "🤝 Help Someone"
         ]
     )
 
+    with tab1:
 
-    urgency = st.radio(
-        "Urgency",
-        [
-            "Normal",
-            "Urgent"
+        need = st.selectbox(
+            "What do you need?",
+            [
+                "Sanitary products",
+                "ORS / hydration supplies",
+                "Bandage / basic first aid",
+                "Thermometer",
+                "Basic essential item",
+                "Help reaching campus medical support"
+            ]
+        )
+
+        urgency = st.radio(
+            "Urgency",
+            [
+                "Normal",
+                "Urgent"
+            ]
+        )
+
+        requester_location = st.selectbox(
+            "📍 Where should the help reach you?",
+            HOSTEL_BLOCKS + ["Other / Enter Manually"]
+        )
+
+        if requester_location == "Other / Enter Manually":
+
+            requester_location = st.text_input(
+                "Enter hostel/block",
+                placeholder="Enter your hostel/block"
+            )
+
+        helper_reward = st.number_input(
+            "Suggested Helper Reward (₹)",
+            min_value=0,
+            max_value=200,
+            value=20
+        )
+
+        additional_details = st.text_area(
+            "Additional details",
+            placeholder="Example: Need it within the next hour."
+        )
+
+        if st.button("🏥 Request Assistance"):
+
+            if not requester_location.strip():
+
+                st.warning(
+                    "Please enter where the assistance should reach you."
+                )
+
+            else:
+
+                request_id = (
+                    "ESS-"
+                    + datetime.now().strftime("%y%m%d")
+                    + "-"
+                    + str(uuid.uuid4())[:5].upper()
+                )
+
+                essential_request = {
+                    "Request ID": request_id,
+                    "Need": need,
+                    "Urgency": urgency,
+                    "Location": requester_location,
+                    "Reward": helper_reward,
+                    "Details": additional_details,
+                    "Status": "Open",
+                    "Requester": st.session_state.profile.get(
+                        "name", "IBS Student"
+                    ),
+                    "Created": datetime.now().strftime(
+                        "%d %b %Y, %I:%M %p"
+                    )
+                }
+
+                st.session_state.essential_requests.append(
+                    essential_request
+                )
+
+                add_notification(
+                    "Essential help requested",
+                    f"Your request for {need.lower()} has been posted for verified campus helpers.",
+                    "help"
+                )
+
+                st.success(
+                    f"✅ Request posted for {need}."
+                )
+
+                st.info(
+                    "🔔 You'll receive an IBeX notification when someone accepts your request."
+                )
+
+    with tab2:
+
+        sample_essential_requests = [
+            {
+                "Request ID": "ESS-DEMO-01",
+                "Need": "ORS / hydration supplies",
+                "Urgency": "Urgent",
+                "Location": "U-Block",
+                "Reward": 30,
+                "Details": "Needed as soon as possible.",
+                "Status": "Open",
+                "Requester": "IBX Student 326",
+                "Created": "19 Sep 2026, 05:40 PM"
+            },
+            {
+                "Request ID": "ESS-DEMO-02",
+                "Need": "Sanitary products",
+                "Urgency": "Normal",
+                "Location": "G-Block",
+                "Reward": 20,
+                "Details": "Any standard pack is fine.",
+                "Status": "Open",
+                "Requester": "IBX Student 174",
+                "Created": "19 Sep 2026, 05:45 PM"
+            }
         ]
-    )
 
-
-    helper_reward = st.number_input(
-        "Suggested Helper Reward (₹)",
-        min_value=0,
-        max_value=200,
-        value=20
-    )
-
-
-    if st.button("🏥 Request Assistance"):
-
-        st.success(
-            f"✅ Request posted for {need}."
+        all_essential = (
+            sample_essential_requests
+            + st.session_state.essential_requests
         )
 
+        open_requests = [
+            request for request in all_essential
+            if request.get("Status") == "Open"
+        ]
 
-        st.info(
-            "Only verified IBS users can respond."
-        )
+        if not open_requests:
+
+            st.info(
+                "No open essential-help requests right now."
+            )
+
+        for request in open_requests:
+
+            urgency_label = (
+                "🔴 URGENT"
+                if request["Urgency"] == "Urgent"
+                else "🟢 NORMAL"
+            )
+
+            st.markdown(
+                f"""
+                <div class="card">
+                    <h3>🏥 {request['Need']}</h3>
+                    <p><b>{urgency_label}</b></p>
+                    <p><b>Requested by:</b> {request['Requester']}</p>
+                    <p>📍 Delivery / Help Location: <b>{request['Location']}</b></p>
+                    <p>💰 Suggested Helper Reward: <b>₹{request['Reward']}</b></p>
+                    <p>📝 {request['Details'] or 'No additional details provided.'}</p>
+                    <small>Posted: {request['Created']}</small>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            if st.button(
+                "🤝 Accept Essential Help",
+                key=f"essential_accept_{request['Request ID']}"
+            ):
+
+                request["Status"] = "Accepted"
+                request["Accepted By"] = st.session_state.profile.get(
+                    "name", "IBS Student"
+                )
+
+                st.session_state.points += 40
+
+                add_notification(
+                    "Essential help accepted",
+                    f"You accepted the {request['Need'].lower()} request for {request['Requester']}. +40 IBeX points.",
+                    "help"
+                )
+
+                st.toast("💗 Essential help accepted — +40 IBeX points!", icon="💗")
+
+                st.success(
+                    "💗 Essential help accepted!"
+                )
+
+                st.info(
+                    "💗 You earned 40 IBeX points for helping a fellow student."
+                )
+
+                show_celebration("hearts")
+
+            st.markdown("---")
 
 
-# ============================================================
 # REWARDS
 # ============================================================
 
@@ -1995,6 +2263,75 @@ elif st.session_state.current_page == "Rewards":
             "the reward would be applied to "
             "the user's IBeX account."
         )
+
+
+# ============================================================
+# NOTIFICATIONS
+# ============================================================
+
+elif st.session_state.current_page == "Notifications":
+
+    st.title("🔔 Notifications")
+
+    st.caption(
+        "IBeX keeps your important activity updates inside the app. "
+        "For the live platform, these can be connected to browser/mobile push notifications."
+    )
+
+    if len(st.session_state.notifications) == 0:
+
+        st.info("You're all caught up. No notifications yet.")
+
+    else:
+
+        unread = sum(
+            1 for n in st.session_state.notifications
+            if not n.get("read", False)
+        )
+
+        c1, c2 = st.columns([3, 1])
+
+        with c1:
+            st.metric("Unread", unread)
+
+        with c2:
+            if st.button("✓ Mark all as read"):
+                for n in st.session_state.notifications:
+                    n["read"] = True
+                st.rerun()
+
+        st.markdown("---")
+
+        for idx, notification in enumerate(st.session_state.notifications):
+
+            icon = {
+                "success": "✅",
+                "help": "💗",
+                "delivery": "⭐",
+                "chat": "💬",
+                "order": "📦"
+            }.get(notification.get("kind"), "🔔")
+
+            background = "#FFF8E8" if not notification.get("read") else "#FFFFFF"
+
+            st.markdown(
+                f"""
+                <div class="card" style="background:{background};">
+                    <h4>{icon} {notification['title']}</h4>
+                    <p>{notification['message']}</p>
+                    <small>{notification['time']}</small>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            if not notification.get("read"):
+                if st.button(
+                    "Mark as read",
+                    key=f"read_notification_{idx}"
+                ):
+                    notification["read"] = True
+                    st.rerun()
 
 
 # ============================================================
