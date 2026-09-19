@@ -170,7 +170,6 @@ div.stButton > button[kind="primary"] {
 .pastel-mint { background:#E4FAF1; color:#23765A; }
 .pastel-coral { background:#FFF0ED; color:#A84D40; }
 .pastel-butter { background:#FFF8D9; color:#806915; }
-.analytics-card { background:#FFFFFF; border:1px solid #EEE7F5; border-radius:20px; padding:18px; box-shadow:0 7px 20px rgba(50,40,60,.06); }
 
 </style>
 """, unsafe_allow_html=True)
@@ -188,6 +187,9 @@ if "selected_item" not in st.session_state:
 
 if "orders" not in st.session_state:
     st.session_state.orders = []
+
+if "order_chats" not in st.session_state:
+    st.session_state.order_chats = {}
 
 if "points" not in st.session_state:
     st.session_state.points = 245
@@ -258,7 +260,7 @@ marketplace_data = [
     {
         "id": "L002",
         "item": "Black Formal Heels",
-        "image": "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=900&q=80",
+        "image": "https://images.unsplash.com/photo-1559334417-1adb87b6e97f?auto=format&fit=crop&fm=jpg&q=85&w=1200",
         "category": "Fashion",
         "type": "Rent",
         "price": 50,
@@ -274,7 +276,7 @@ marketplace_data = [
     {
         "id": "L003",
         "item": "Hair Dryer",
-        "image": "https://images.unsplash.com/photo-1522338242992-e1a54906a8da?auto=format&fit=crop&w=900&q=80",
+        "image": "https://images.unsplash.com/photo-1522338140262-f46f5913618a?auto=format&fit=crop&fm=jpg&q=85&w=1200",
         "category": "Personal Care",
         "type": "Rent",
         "price": 30,
@@ -850,7 +852,7 @@ elif st.session_state.current_page == "List an Item":
 
 
     st.info(
-        "🎁 3 listings are free."
+        "🎁 Your initial 3 listings are free. Additional listings require a paid listing plan."
     )
 
 
@@ -871,9 +873,16 @@ elif st.session_state.current_page == "List an Item":
             "Sports",
             "Bags",
             "Event / Function",
-            "Other"
+            "Others"
         ]
     )
+
+    other_category = ""
+    if category == "Others":
+        other_category = st.text_input(
+            "Specify the item category",
+            placeholder="Example: Kitchenware, Stationery, Accessories"
+        )
 
 
     listing_type = st.radio(
@@ -967,6 +976,12 @@ elif st.session_state.current_page == "List an Item":
                 "Please enter the item name."
             )
 
+        elif category == "Others" and other_category.strip() == "":
+
+            st.warning(
+                "Please specify what type of item you are listing."
+            )
+
         elif location.strip() == "":
 
             st.warning(
@@ -990,7 +1005,11 @@ elif st.session_state.current_page == "List an Item":
                     item_name,
 
                 "category":
-                    category,
+                    (
+                        f"Others • {other_category.strip()}"
+                        if category == "Others" and other_category.strip()
+                        else category
+                    ),
 
                 "type":
                     (
@@ -1423,6 +1442,13 @@ elif st.session_state.current_page == "Checkout":
                 order
             )
 
+            st.session_state.order_chats[order_id] = [
+                {
+                    "sender": "IBeX",
+                    "text": "Private chat is now open. You can coordinate the handover with the seller here."
+                }
+            ]
+
 
             st.session_state.points += 10
 
@@ -1475,7 +1501,7 @@ elif st.session_state.current_page == "My Orders":
     st.title("📦 My Orders")
 
     st.caption(
-        "Seller contact details remain hidden until a purchase or rental is confirmed."
+        "Private seller chat becomes available inside IBeX after a purchase or rental is confirmed."
     )
 
     if len(st.session_state.orders) == 0:
@@ -1529,44 +1555,71 @@ elif st.session_state.current_page == "My Orders":
                 unsafe_allow_html=True
             )
 
-            st.markdown("### 🔐 Private Seller Contact")
+            st.markdown("### 💬 Private Seller Chat")
             st.caption(
-                "Seller contact is unlocked only after the order is confirmed. It is kept separate from the public listing."
+                "Your contact details are not displayed publicly. After confirmation, you can communicate with the seller through this private in-app chat."
             )
 
-            if st.button(
-                "🔓 View Private Contact",
-                key=f"view_contact_{order['Order ID']}"
-            ):
-                st.session_state[f"contact_open_{order['Order ID']}"] = True
+            order_id = order["Order ID"]
 
-            if st.session_state.get(f"contact_open_{order['Order ID']}", False):
-                st.markdown(
-                    f"""
-                    <div class="secure-box">
-                    🔒 <b>Private IBeX Contact</b><br><br>
-                    Seller: <b>{order.get('Seller', 'IBX Student')}</b><br>
-                    Contact ID: <b>{order.get('Private Contact', 'Private IBeX Contact')}</b><br><br>
-                    This contact is visible only from the confirmed order and is not displayed on the marketplace listing.
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+            chat = st.session_state.order_chats.setdefault(
+                order_id,
+                [
+                    {
+                        "sender": "IBeX",
+                        "text": "Private chat is now open for this confirmed order."
+                    }
+                ]
+            )
+
+            with st.container(border=True):
+
+                for message in chat:
+
+                    if message["sender"] == "You":
+
+                        with st.chat_message("user"):
+                            st.write(message["text"])
+
+                    else:
+
+                        with st.chat_message("assistant"):
+                            st.write(message["text"])
+
 
                 message = st.text_input(
-                    "Message seller privately",
+                    "Message seller",
                     placeholder="Example: Hi, when can we meet for the handover?",
-                    key=f"message_{order['Order ID']}"
+                    key=f"chat_input_{order_id}"
                 )
 
+
                 if st.button(
-                    "💬 Send Private Message",
-                    key=f"send_message_{order['Order ID']}"
+                    "💬 Send Message",
+                    key=f"send_chat_{order_id}"
                 ):
+
                     if message.strip():
-                        st.success("✅ Message sent through the private IBeX contact channel.")
+
+                        chat.append(
+                            {
+                                "sender": "You",
+                                "text": message.strip()
+                            }
+                        )
+
+                        st.success(
+                            "Message sent privately through IBeX."
+                        )
+
+                        st.rerun()
+
                     else:
-                        st.warning("Please enter a message first.")
+
+                        st.warning(
+                            "Please enter a message first."
+                        )
+
 
             st.markdown("---")
 
