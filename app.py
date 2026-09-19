@@ -172,28 +172,67 @@ div.stButton > button[kind="primary"] {
 .pastel-butter { background:#FFF8D9; color:#806915; }
 
 
-/* Celebration animations */
+/* Full-screen celebration animations */
 .celebration {
-    position: relative;
-    height: 120px;
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
     overflow: hidden;
-    margin: 8px 0 18px 0;
-    border-radius: 18px;
-    background: linear-gradient(135deg, #FFF8E8, #F7F0FF);
-    border: 1px solid rgba(93,60,120,.08);
+    z-index: 999999;
+    pointer-events: none;
+    background: transparent;
 }
 .celebration span {
     position: absolute;
-    bottom: -30px;
-    font-size: 28px;
-    animation: popFloat 1.8s ease-out forwards;
+    bottom: -80px;
+    font-size: clamp(30px, 3.2vw, 58px);
+    animation: fullScreenPop 2.5s cubic-bezier(.18,.75,.28,1) forwards;
     opacity: 0;
+    filter: drop-shadow(0 5px 8px rgba(0,0,0,.12));
 }
-@keyframes popFloat {
-    0% { transform: translateY(0) scale(.4) rotate(0deg); opacity: 0; }
-    15% { opacity: 1; }
-    70% { opacity: 1; }
-    100% { transform: translateY(-105px) scale(1.15) rotate(20deg); opacity: 0; }
+@keyframes fullScreenPop {
+    0% {
+        transform: translateY(0) scale(.25) rotate(-15deg);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    35% {
+        transform: translateY(-32vh) scale(1.15) rotate(8deg);
+        opacity: 1;
+    }
+    70% {
+        transform: translateY(-68vh) scale(1) rotate(-8deg);
+        opacity: .95;
+    }
+    100% {
+        transform: translateY(-112vh) scale(.7) rotate(18deg);
+        opacity: 0;
+    }
+}
+.celebration-message {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000000;
+    pointer-events: none;
+    text-align: center;
+    width: min(90vw, 620px);
+    text-shadow: 0 2px 14px rgba(255,255,255,.95);
+}
+.celebration-message h2 {
+    font-size: clamp(28px, 4vw, 48px);
+    color: #5D3C78;
+    margin: 0 0 8px 0;
+}
+.celebration-message p {
+    font-size: clamp(16px, 2vw, 22px);
+    color: #342F3A;
+    margin: 0;
+    font-weight: 600;
 }
 
 </style>
@@ -268,16 +307,16 @@ def add_notification(title, message, kind="info"):
 
 def show_celebration(kind):
     if kind == "stars":
-        symbols = ["⭐", "✨", "🌟", "⭐", "✨", "🌟", "⭐", "✨", "🌟", "⭐"]
-        title = "Request accepted! 🎉"
+        symbols = ["⭐", "✨", "🌟", "⭐", "✨", "🌟", "⭐", "✨", "🌟", "⭐", "✨", "🌟"]
+        title = "Request accepted! ⭐"
         message = "Thank you for helping a fellow IBS student."
     else:
-        symbols = ["❤️", "💗", "💕", "❤️", "💗", "💕", "❤️", "💗", "💕", "❤️"]
+        symbols = ["❤️", "💗", "💕", "❤️", "💗", "💕", "❤️", "💗", "💕", "❤️", "💗", "💕"]
         title = "Help accepted! 💗"
         message = "A student is now helping with this essential request."
 
-    positions = [6, 16, 26, 36, 46, 56, 66, 76, 86, 94]
-    delays = [0.0, .12, .24, .36, .48, .60, .72, .84, .96, 1.08]
+    positions = [4, 12, 20, 28, 36, 44, 52, 60, 68, 76, 84, 92]
+    delays = [0.0, .12, .24, .36, .48, .60, .72, .84, .96, 1.08, 1.20, 1.32]
 
     spans = "".join(
         f"<span style='left:{positions[i]}%;animation-delay:{delays[i]}s'>{symbols[i]}</span>"
@@ -286,11 +325,11 @@ def show_celebration(kind):
 
     st.markdown(
         f"""
-        <div class="celebration">
-            {spans}
+        <div class="celebration">{spans}</div>
+        <div class="celebration-message">
+            <h2>{title}</h2>
+            <p>{message}</p>
         </div>
-        <h3>{title}</h3>
-        <p>{message}</p>
         """,
         unsafe_allow_html=True
     )
@@ -1547,6 +1586,17 @@ elif st.session_state.current_page == "Checkout":
                 "order"
             )
 
+            # In the prototype, items marked as "You" are listings owned by
+            # the currently active demo profile. Notify the seller when one
+            # of those listings is purchased.
+            if item.get("seller") == "You":
+                add_notification(
+                    "Someone bought your item 🎉",
+                    f"Your listing '{item['item']}' has been purchased. Order {order_id} is confirmed.",
+                    "seller"
+                )
+                st.toast(f"🎉 Someone bought your {item['item']}!", icon="🎉")
+
             st.toast("📦 Order confirmed — private seller chat is open!", icon="📦")
 
             st.session_state.order_chats[order_id] = [
@@ -1917,6 +1967,18 @@ elif st.session_state.current_page == "Delivery & Help":
                     "delivery"
                 )
 
+                # Notify the requester too when the accepted request belongs
+                # to the current demo profile. In a production backend this
+                # would be delivered to the requester's account/device.
+                current_name = st.session_state.profile.get("name", "IBS Student")
+                if task.get("Requester") == current_name:
+                    add_notification(
+                        "Someone accepted your delivery request ⭐",
+                        f"{task.get('Accepted By', 'A campus helper')} accepted your {task['Task'].lower()} request.",
+                        "delivery"
+                    )
+                    st.toast("⭐ Someone accepted your delivery request!", icon="⭐")
+
                 st.toast("⭐ Delivery help accepted — +30 IBeX points!", icon="⭐")
                 st.session_state.show_celebration = "stars"
 
@@ -2134,6 +2196,16 @@ elif st.session_state.current_page == "Essential Assistance":
                     f"You accepted the {request['Need'].lower()} request for {request['Requester']}. +40 IBeX points.",
                     "help"
                 )
+
+                # Notify the student who originally requested the help.
+                current_name = st.session_state.profile.get("name", "IBS Student")
+                if request.get("Requester") == current_name:
+                    add_notification(
+                        "Someone accepted your essential-help request 💗",
+                        f"{request.get('Accepted By', 'A campus helper')} accepted your {request['Need'].lower()} request.",
+                        "help"
+                    )
+                    st.toast("💗 Someone accepted your essential-help request!", icon="💗")
 
                 st.toast("💗 Essential help accepted — +40 IBeX points!", icon="💗")
 
