@@ -1,8 +1,14 @@
-
 import streamlit as st
 import pandas as pd
+import numpy as np
+import plotly.express as px
 import uuid
-from datetime import datetime
+import re
+import secrets
+import hashlib
+import smtplib
+from email.message import EmailMessage
+from datetime import datetime, timedelta
 
 
 # ============================================================
@@ -11,8 +17,9 @@ from datetime import datetime
 
 st.set_page_config(
     page_title="IBeX | IBS Exchange",
-    page_icon="🟣",
-    layout="wide"
+    page_icon="🛍️",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 
@@ -61,6 +68,26 @@ st.markdown("""
     border-radius: 18px;
     box-shadow: 0px 3px 14px rgba(0,0,0,0.08);
     margin-bottom: 15px;
+}
+
+.listing-image {
+    width: 100%;
+    height: 210px;
+    object-fit: cover;
+    border-radius: 14px;
+    margin-bottom: 14px;
+}
+
+.image-placeholder {
+    width: 100%;
+    height: 210px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #F3F0F7;
+    border-radius: 14px;
+    font-size: 60px;
+    margin-bottom: 14px;
 }
 
 /* Price */
@@ -134,6 +161,24 @@ div.stButton > button[kind="primary"] {
     color: white;
 }
 
+
+/* Pastel-pop visual system */
+:root { --cream:#FFFDF8; --lilac:#B79CED; --coral:#FF9A8D; --mint:#8EDCC0; --butter:#F8DF7A; --ink:#342F3A; }
+.stApp { background: linear-gradient(180deg, #FFFDF8 0%, #F8F5FF 48%, #FFFFFF 100%); color: var(--ink); }
+.main-title { color:#5D3C78; letter-spacing:-1px; }
+.tagline { color:#766B7D; }
+.hero { background: linear-gradient(135deg, #5D3C78 0%, #7E5BA4 48%, #A27BC5 100%); box-shadow:0 12px 32px rgba(93,60,120,.15); }
+.card { border:1px solid rgba(93,60,120,.08); box-shadow:0 8px 24px rgba(55,45,65,.07); }
+.nav-container { border:1px solid rgba(93,60,120,.08); }
+.auth-card { background:rgba(255,255,255,.88); border:1px solid rgba(93,60,120,.10); border-radius:28px; padding:36px; box-shadow:0 16px 45px rgba(55,45,65,.10); }
+.auth-badge { display:inline-block; padding:7px 12px; border-radius:999px; background:#EFE8FF; color:#5D3C78; font-weight:700; font-size:13px; }
+.pastel-pill { display:inline-block; padding:8px 12px; border-radius:999px; margin:4px 4px 4px 0; font-weight:700; font-size:13px; }
+.pastel-lilac { background:#EFE8FF; color:#5D3C78; }
+.pastel-mint { background:#E4FAF1; color:#23765A; }
+.pastel-coral { background:#FFF0ED; color:#A84D40; }
+.pastel-butter { background:#FFF8D9; color:#806915; }
+.analytics-card { background:#FFFFFF; border:1px solid #EEE7F5; border-radius:20px; padding:18px; box-shadow:0 7px 20px rgba(50,40,60,.06); }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -160,6 +205,198 @@ if "custom_listings" not in st.session_state:
 if "help_requests" not in st.session_state:
     st.session_state.help_requests = []
 
+if "onboarding_complete" not in st.session_state:
+    st.session_state.onboarding_complete = False
+if "profile" not in st.session_state:
+    st.session_state.profile = {}
+if "otp_hash" not in st.session_state:
+    st.session_state.otp_hash = None
+if "otp_expires" not in st.session_state:
+    st.session_state.otp_expires = None
+if "otp_email" not in st.session_state:
+    st.session_state.otp_email = None
+if "otp_verified" not in st.session_state:
+    st.session_state.otp_verified = False
+
+
+# ============================================================
+# AUTHENTICATION & AUTHORIZATION
+# ============================================================
+
+ALLOWED_DOMAIN = "@ibs.edu"
+ACCESS_ERROR = "Access restricted: Please sign in with your official IBS email ID."
+
+
+def is_allowed_email(email: str) -> bool:
+    """Strict server-side domain rule; rejects personal email providers."""
+    if not email:
+        return False
+    email = email.strip().lower()
+    return bool(re.fullmatch(r"[a-z0-9._%+-]+@ibs\.edu", email))
+
+
+def get_oidc_user():
+    """Return the Streamlit OIDC user object when available."""
+    try:
+        if st.user.is_logged_in:
+            return st.user
+    except Exception:
+        return None
+    return None
+
+
+def send_ibs_otp(email: str) -> bool:
+    """Send a one-time code through configured SMTP. No email is sent if SMTP is not configured."""
+    try:
+        email_cfg = st.secrets.get("email", {})
+        host = email_cfg.get("smtp_host")
+        port = int(email_cfg.get("smtp_port", 587))
+        username = email_cfg.get("smtp_username")
+        password = email_cfg.get("smtp_password")
+        sender = email_cfg.get("sender_email", username)
+        if not all([host, username, password, sender]):
+            return False
+
+        otp = f"{secrets.randbelow(1000000):06d}"
+        digest = hashlib.sha256(otp.encode()).hexdigest()
+        st.session_state.otp_hash = digest
+        st.session_state.otp_expires = datetime.utcnow() + timedelta(minutes=10)
+        st.session_state.otp_email = email.lower()
+
+        msg = EmailMessage()
+        msg["Subject"] = "IBeX IBS verification code"
+        msg["From"] = sender
+        msg["To"] = email
+        msg.set_content(f"Your IBeX verification code is {otp}. It expires in 10 minutes.")
+
+        with smtplib.SMTP(host, port, timeout=15) as server:
+            server.starttls()
+            server.login(username, password)
+            server.send_message(msg)
+        return True
+    except Exception as exc:
+        st.session_state.otp_hash = None
+        st.session_state.otp_expires = None
+        st.session_state.otp_email = None
+        st.session_state.auth_error = f"Unable to send the verification email: {exc}"
+        return False
+
+
+def render_login():
+    st.markdown("<div style='height:5vh'></div>", unsafe_allow_html=True)
+    left, center, right = st.columns([1, 2, 1])
+    with center:
+        st.markdown("""
+        <div class="auth-card">
+            <div class="auth-badge">IBS VERIFIED CAMPUS</div>
+            <h1 style="margin-top:14px;margin-bottom:4px;color:#5D3C78;">IBeX</h1>
+            <p style="font-size:18px;color:#766B7D;margin-bottom:20px;">IBS Exchange · One campus. One trusted marketplace.</p>
+            <span class="pastel-pill pastel-lilac">🔐 IBS Verified</span>
+            <span class="pastel-pill pastel-mint">🌱 Reuse & Earn</span>
+            <span class="pastel-pill pastel-butter">⭐ Reward Points</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("### Sign in to continue")
+        st.caption("Use your official IBS account. Personal email addresses are not permitted.")
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("Continue with Google", use_container_width=True, type="primary"):
+                try:
+                    st.login("google")
+                except Exception as exc:
+                    st.error("Google SSO is not configured yet. Add the Google OIDC settings to Streamlit secrets.")
+        with c2:
+            if st.button("Continue with Microsoft", use_container_width=True):
+                try:
+                    st.login("microsoft")
+                except Exception as exc:
+                    st.error("Microsoft SSO is not configured yet. Add the Microsoft OIDC settings to Streamlit secrets.")
+
+        st.markdown("---")
+        st.markdown("**Fallback: IBS email verification**")
+        email = st.text_input("Official IBS email", placeholder="name@ibs.edu")
+        if st.button("Send email OTP", use_container_width=True):
+            normalized = email.strip().lower()
+            if not is_allowed_email(normalized):
+                st.error(ACCESS_ERROR)
+            elif send_ibs_otp(normalized):
+                st.success("Verification code sent to your IBS email. It expires in 10 minutes.")
+            else:
+                st.error("Email OTP is not configured. Configure the SMTP settings in Streamlit secrets, or use IBS SSO.")
+
+        if st.session_state.otp_hash and st.session_state.otp_email:
+            otp = st.text_input("Enter the 6-digit verification code", max_chars=6)
+            if st.button("Verify IBS email", type="primary", use_container_width=True):
+                valid_window = st.session_state.otp_expires and datetime.utcnow() < st.session_state.otp_expires
+                valid_code = hashlib.sha256(otp.strip().encode()).hexdigest() == st.session_state.otp_hash
+                if valid_window and valid_code:
+                    st.session_state.otp_verified = True
+                    st.session_state.profile = {"email": st.session_state.otp_email, "name": st.session_state.otp_email.split("@")[0].replace(".", " ").title()}
+                    st.session_state.onboarding_complete = False
+                    st.session_state.otp_hash = None
+                    st.rerun()
+                else:
+                    st.error("Invalid or expired verification code.")
+
+
+def enforce_auth():
+    """Route protection: only verified IBS identities reach private pages."""
+    user = get_oidc_user()
+    if user is None and not st.session_state.get("otp_verified", False):
+        render_login()
+        st.stop()
+
+    email = st.session_state.profile.get("email") if st.session_state.get("otp_verified") else getattr(user, "email", "")
+    if not is_allowed_email(email):
+        try:
+            st.logout()
+        except Exception:
+            pass
+        st.error(ACCESS_ERROR)
+        st.stop()
+
+    if user is not None:
+        st.session_state.profile = {
+            "email": email.lower(),
+            "name": getattr(user, "name", "") or email.split("@")[0].replace(".", " ").title(),
+            "department": getattr(user, "department", "") or st.session_state.profile.get("department", ""),
+            "batch": getattr(user, "batch", "") or st.session_state.profile.get("batch", ""),
+        }
+
+
+def render_onboarding():
+    st.markdown("## Welcome to IBeX 👋")
+    st.write("Complete your IBS profile once to personalise your campus experience.")
+    email = st.session_state.profile.get("email", "")
+    st.info(f"Verified IBS account: **{email}**")
+
+    name = st.text_input("Name", value=st.session_state.profile.get("name", ""))
+    department = st.text_input("Department / School", value=st.session_state.profile.get("department", ""))
+    batch = st.text_input("Batch / Graduation year", value=st.session_state.profile.get("batch", ""))
+    role = st.selectbox("Role", ["Student", "Faculty", "Admin"])
+
+    admin_emails = set()
+    try:
+        admin_emails = {x.strip().lower() for x in st.secrets.get("auth", {}).get("admin_emails", [])}
+    except Exception:
+        pass
+    if role == "Admin" and email.lower() not in admin_emails:
+        st.warning("Admin access is restricted to explicitly allowlisted IBS accounts. Please select Student or Faculty.")
+        role = st.selectbox("Allowed role", ["Student", "Faculty"])
+
+    if st.button("Save IBS Profile", type="primary"):
+        st.session_state.profile.update({"name": name, "department": department, "batch": batch, "role": role})
+        st.session_state.onboarding_complete = True
+        st.session_state.current_page = "Home"
+        st.rerun()
+
+
+enforce_auth()
+
+if not st.session_state.get("onboarding_complete"):
+    render_onboarding()
+    st.stop()
 
 # ============================================================
 # HOSTEL BLOCKS
@@ -190,6 +427,7 @@ marketplace_data = [
     {
         "id": "L001",
         "item": "Scientific Calculator",
+        "image": "https://images.unsplash.com/photo-1587145820266-a5951ee6f620?auto=format&fit=crop&w=900&q=80",
         "category": "Academic",
         "type": "Buy",
         "price": 500,
@@ -204,6 +442,7 @@ marketplace_data = [
     {
         "id": "L002",
         "item": "Black Formal Heels",
+        "image": "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=900&q=80",
         "category": "Fashion",
         "type": "Rent",
         "price": 50,
@@ -218,6 +457,7 @@ marketplace_data = [
     {
         "id": "L003",
         "item": "Hair Dryer",
+        "image": "https://images.unsplash.com/photo-1522338242992-e1a54906a8da?auto=format&fit=crop&w=900&q=80",
         "category": "Personal Care",
         "type": "Rent",
         "price": 30,
@@ -232,6 +472,7 @@ marketplace_data = [
     {
         "id": "L004",
         "item": "Electric Iron",
+        "image": "https://images.unsplash.com/photo-1558317374-067fb5f30001?auto=format&fit=crop&w=900&q=80",
         "category": "Hostel Utility",
         "type": "Rent",
         "price": 20,
@@ -246,6 +487,7 @@ marketplace_data = [
     {
         "id": "L005",
         "item": "Ethnic Kurta Set",
+        "image": "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=900&q=80",
         "category": "Fashion",
         "type": "Rent",
         "price": 100,
@@ -260,6 +502,7 @@ marketplace_data = [
     {
         "id": "L006",
         "item": "Extension Board",
+        "image": "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=900&q=80",
         "category": "Electronics",
         "type": "Buy",
         "price": 300,
@@ -274,6 +517,7 @@ marketplace_data = [
     {
         "id": "L007",
         "item": "Sports Shoes",
+        "image": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=80",
         "category": "Sports",
         "type": "Buy",
         "price": 800,
@@ -288,6 +532,7 @@ marketplace_data = [
     {
         "id": "L008",
         "item": "Tripod",
+        "image": "https://images.unsplash.com/photo-1606986628253-1f4a5d8a8a1e?auto=format&fit=crop&w=900&q=80",
         "category": "Electronics",
         "type": "Rent",
         "price": 40,
@@ -318,7 +563,7 @@ header_left, header_right = st.columns([4, 1])
 with header_left:
 
     st.markdown(
-        '<div class="main-title">🟣 IBeX</div>',
+        '<div class="main-title">IBeX</div>',
         unsafe_allow_html=True
     )
 
@@ -346,7 +591,7 @@ st.markdown(
 
 nav1, nav2, nav3, nav4, nav5 = st.columns(5)
 
-nav6, nav7, nav8, nav9 = st.columns(4)
+nav6, nav7, nav8, nav9, nav10 = st.columns(5)
 
 
 with nav1:
@@ -429,15 +674,101 @@ with nav9:
         st.session_state.current_page = "Profile"
         st.rerun()
 
+with nav10:
+    if st.button(
+        "📊 Analytics",
+        use_container_width=True
+    ):
+        st.session_state.current_page = "Analytics"
+        st.rerun()
 
 st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ============================================================
+# ANALYTICS DASHBOARD
+# ============================================================
+
+if st.session_state.current_page == "Analytics":
+    st.title("📊 IBeX Analytics Dashboard")
+    st.caption("Operational, marketplace and engagement insights for the IBS campus ecosystem.")
+
+    # Synthetic operational records for the prototype dashboard.
+    # Replace this loader with a database/API once IBeX has real transaction data.
+    @st.cache_data(ttl=3600)
+    def load_analytics_data():
+        np.random.seed(42)
+        dates = pd.date_range(start="2026-01-01", periods=180, freq="D")
+        categories = ["Academic", "Fashion", "Electronics", "Essentials", "Hostel", "Other"]
+        regions = HOSTEL_BLOCKS
+        n = 500
+        df = pd.DataFrame({
+            "Date": np.random.choice(dates, size=n),
+            "Category": np.random.choice(categories, size=n),
+            "Hostel": np.random.choice(regions, size=n),
+            "Transaction_Value": np.random.uniform(80, 1800, size=n),
+            "Platform_Cost": np.random.uniform(10, 180, size=n),
+            "Success_Rate": np.random.uniform(0.72, 0.99, size=n),
+            "Type": np.random.choice(["Buy", "Rent", "Help"], size=n, p=[0.45, 0.35, 0.20]),
+        })
+        df["Net_Value"] = df["Transaction_Value"] - df["Platform_Cost"]
+        df["Date"] = pd.to_datetime(df["Date"])
+        return df.sort_values("Date")
+
+    analytics_raw = load_analytics_data()
+    st.sidebar.title("Analytics Filters")
+    selected_hostels = st.sidebar.multiselect("Hostel / Block", sorted(analytics_raw["Hostel"].unique()), default=sorted(analytics_raw["Hostel"].unique()))
+    selected_categories = st.sidebar.multiselect("Category", sorted(analytics_raw["Category"].unique()), default=sorted(analytics_raw["Category"].unique()))
+    selected_types = st.sidebar.multiselect("Transaction Type", sorted(analytics_raw["Type"].unique()), default=sorted(analytics_raw["Type"].unique()))
+
+    df_filtered = analytics_raw[
+        analytics_raw["Hostel"].isin(selected_hostels) &
+        analytics_raw["Category"].isin(selected_categories) &
+        analytics_raw["Type"].isin(selected_types)
+    ]
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Marketplace Value", f"₹{df_filtered['Transaction_Value'].sum():,.0f}")
+    col2.metric("Net Platform Value", f"₹{df_filtered['Net_Value'].sum():,.0f}")
+    col3.metric("Avg Success Rate", f"{df_filtered['Success_Rate'].mean()*100:.1f}%")
+    col4.metric("Active Listings", len(marketplace_data))
+
+    st.markdown("---")
+    c1, c2 = st.columns(2)
+    with c1:
+        trend = df_filtered.groupby("Date")[["Transaction_Value", "Net_Value"]].sum().reset_index()
+        fig = px.line(trend, x="Date", y=["Transaction_Value", "Net_Value"], title="Marketplace Value vs Net Value", template="plotly_white")
+        st.plotly_chart(fig, use_container_width=True)
+    with c2:
+        cat = df_filtered.groupby("Category")["Transaction_Value"].sum().reset_index().sort_values("Transaction_Value", ascending=False)
+        fig = px.bar(cat, x="Category", y="Transaction_Value", title="Transaction Value by Category", template="plotly_white")
+        st.plotly_chart(fig, use_container_width=True)
+
+    c3, c4 = st.columns(2)
+    with c3:
+        fig = px.scatter(df_filtered, x="Success_Rate", y="Transaction_Value", color="Type", size="Net_Value", hover_data=["Category", "Hostel"], title="Success Rate vs Transaction Value", template="plotly_white")
+        st.plotly_chart(fig, use_container_width=True)
+    with c4:
+        box = px.box(df_filtered, x="Category", y="Platform_Cost", color="Type", title="Platform Cost Distribution", template="plotly_white")
+        st.plotly_chart(box, use_container_width=True)
+
+    st.subheader("Current Marketplace Records")
+    st.dataframe(df_filtered[["Date", "Hostel", "Category", "Type", "Transaction_Value", "Platform_Cost", "Success_Rate"]], use_container_width=True)
+
+    st.markdown("### Live prototype metrics")
+    live1, live2, live3 = st.columns(3)
+    live1.metric("User Points", st.session_state.points)
+    live2.metric("Orders Created", len(st.session_state.orders))
+    live3.metric("Help Requests", len(st.session_state.help_requests))
+
+    st.info("Prototype note: the analytics dataset above is synthetic until IBeX is connected to a persistent transaction database. The dashboard structure is ready for real data.")
 
 
 # ============================================================
 # HOME
 # ============================================================
 
-if st.session_state.current_page == "Home":
+elif st.session_state.current_page == "Home":
 
     st.markdown("""
     <div class="hero">
@@ -673,6 +1004,18 @@ elif st.session_state.current_page == "Marketplace":
 
         with colA:
 
+            # Listing image
+            if item.get("image"):
+                st.image(
+                    item["image"],
+                    use_container_width=True
+                )
+            else:
+                st.markdown(
+                    "<div class='image-placeholder'>🛍️</div>",
+                    unsafe_allow_html=True
+                )
+
             st.markdown(
                 f"### {item['item']}"
             )
@@ -869,6 +1212,19 @@ elif st.session_state.current_page == "List an Item":
         )
     )
 
+    uploaded_image = st.file_uploader(
+        "📷 Upload Item Image",
+        type=["jpg", "jpeg", "png", "webp"],
+        help="Upload a clear photo of the item you want to list."
+    )
+
+    if uploaded_image is not None:
+        st.image(
+            uploaded_image,
+            caption="Listing image preview",
+            width=300
+        )
+
 
     if st.button("📤 Publish Listing"):
 
@@ -928,6 +1284,13 @@ elif st.session_state.current_page == "List an Item":
                 "location":
                     location,
 
+                "image":
+                    (
+                        uploaded_image.getvalue()
+                        if uploaded_image is not None
+                        else None
+                    ),
+
                 "transactions":
                     0
             }
@@ -972,6 +1335,12 @@ elif st.session_state.current_page == "Checkout":
 
 
     else:
+
+        if item.get("image"):
+            st.image(
+                item["image"],
+                width=350
+            )
 
         st.subheader(
             item["item"]
@@ -1287,6 +1656,9 @@ elif st.session_state.current_page == "Checkout":
 
                 "Item":
                     item["item"],
+
+                "Image":
+                    item.get("image"),
 
                 "Type":
                     item["type"],
@@ -1791,29 +2163,21 @@ elif st.session_state.current_page == "Rewards":
 elif st.session_state.current_page == "Profile":
 
     st.title("👤 My IBeX Profile")
+    profile = st.session_state.profile
+    display_name = profile.get("name", "IBS Student")
+    display_email = profile.get("email", "")
+    display_role = profile.get("role", "Student")
+    display_dept = profile.get("department", "Not specified")
+    display_batch = profile.get("batch", "Not specified")
 
-
-    st.markdown("""
+    st.markdown(f"""
     <div class="card">
-
-    <h2>IBX Student 001</h2>
-
-    <p class="verified">
-    ✓ IBS Verified Profile
-    </p>
-
-    <p>
-    ⭐ 4.8 User Rating
-    </p>
-
-    <p>
-    🔄 16 Successful Transactions
-    </p>
-
-    <p>
-    🏆 Trusted Community Member
-    </p>
-
+    <h2>{display_name}</h2>
+    <p class="verified">✓ IBS Verified Profile</p>
+    <p>📧 {display_email}</p>
+    <p>🎓 {display_dept} · Batch {display_batch}</p>
+    <p>👤 Role: {display_role}</p>
+    <p>⭐ {st.session_state.points} IBeX Points</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1869,6 +2233,16 @@ elif st.session_state.current_page == "Profile":
         st.write(
             "✓ Community accountability"
         )
+
+    st.markdown("---")
+    if st.button("Log out", type="secondary"):
+        st.session_state.onboarding_complete = False
+        st.session_state.profile = {}
+        st.session_state.otp_verified = False
+        try:
+            st.logout()
+        except Exception:
+            st.rerun()
 
 
 # ============================================================
