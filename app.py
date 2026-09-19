@@ -245,6 +245,23 @@ def get_oidc_user():
     return None
 
 
+def oidc_provider_configured(provider: str) -> bool:
+    """Check whether a Streamlit native OIDC provider has been configured in secrets.
+
+    OAuth client IDs/secrets must NOT be hard-coded into the Python source.
+    They belong in Streamlit Cloud -> App -> Settings -> Secrets.
+    """
+    try:
+        auth_cfg = st.secrets.get("auth", {})
+        provider_cfg = auth_cfg.get(provider, {})
+        required = ("client_id", "client_secret", "server_metadata_url")
+        return all(str(provider_cfg.get(key, "")).strip() for key in required) and bool(
+            str(auth_cfg.get("cookie_secret", "")).strip()
+        )
+    except Exception:
+        return False
+
+
 def send_ibs_otp(email: str) -> bool:
     """Send a one-time code through configured SMTP. No email is sent if SMTP is not configured."""
     try:
@@ -302,16 +319,36 @@ def render_login():
         c1, c2 = st.columns(2)
         with c1:
             if st.button("Continue with Google", use_container_width=True, type="primary"):
-                try:
-                    st.login("google")
-                except Exception as exc:
-                    st.error("Google SSO is not configured yet. Add the Google OIDC settings to Streamlit secrets.")
+                if not oidc_provider_configured("google"):
+                    st.error(
+                        "Google SSO is not configured yet. Add the Google OIDC settings to Streamlit Cloud Secrets."
+                    )
+                    st.code(
+                        """[auth]
+cookie_secret = "GENERATE_A_LONG_RANDOM_SECRET"
+redirect_uri = "https://YOUR-APP.streamlit.app/oauth2callback"
+
+[auth.google]
+client_id = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+client_secret = "YOUR_GOOGLE_CLIENT_SECRET"
+server_metadata_url = "https://accounts.google.com/.well-known/openid-configuration"""
+                    , language="toml")
+                else:
+                    try:
+                        st.login("google")
+                    except Exception:
+                        st.error("Google sign-in could not be started. Check the Google OIDC settings and OAuth redirect URI in Streamlit Cloud Secrets.")
         with c2:
             if st.button("Continue with Microsoft", use_container_width=True):
-                try:
-                    st.login("microsoft")
-                except Exception as exc:
-                    st.error("Microsoft SSO is not configured yet. Add the Microsoft OIDC settings to Streamlit secrets.")
+                if not oidc_provider_configured("microsoft"):
+                    st.error(
+                        "Microsoft SSO is not configured yet. Add the Microsoft OIDC settings to Streamlit Cloud Secrets."
+                    )
+                else:
+                    try:
+                        st.login("microsoft")
+                    except Exception:
+                        st.error("Microsoft sign-in could not be started. Check the Microsoft OIDC settings and redirect URI in Streamlit Cloud Secrets.")
 
         st.markdown("---")
         st.markdown("**Fallback: IBS email verification**")
