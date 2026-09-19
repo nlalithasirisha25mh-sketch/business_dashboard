@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import plotly.express as px
 import uuid
 from datetime import datetime, timedelta
 
@@ -252,6 +250,7 @@ marketplace_data = [
         "condition": "Excellent",
         "rating": 4.8,
         "seller": "IBX Student 104",
+        "seller_contact": "@ibex_student_104",
         "location": "ABCD Block",
         "transactions": 18
     },
@@ -267,6 +266,7 @@ marketplace_data = [
         "condition": "Good",
         "rating": 4.7,
         "seller": "IBX Student 218",
+        "seller_contact": "@ibex_student_218",
         "location": "QRS Block",
         "transactions": 12
     },
@@ -282,6 +282,7 @@ marketplace_data = [
         "condition": "Excellent",
         "rating": 4.9,
         "seller": "IBX Student 302",
+        "seller_contact": "@ibex_student_302",
         "location": "U-Block",
         "transactions": 24
     },
@@ -297,6 +298,7 @@ marketplace_data = [
         "condition": "Good",
         "rating": 4.6,
         "seller": "IBX Student 187",
+        "seller_contact": "@ibex_student_187",
         "location": "T-Block",
         "transactions": 10
     },
@@ -312,6 +314,7 @@ marketplace_data = [
         "condition": "Excellent",
         "rating": 4.9,
         "seller": "IBX Student 411",
+        "seller_contact": "@ibex_student_411",
         "location": "G-Block",
         "transactions": 20
     },
@@ -327,6 +330,7 @@ marketplace_data = [
         "condition": "Good",
         "rating": 4.5,
         "seller": "IBX Student 096",
+        "seller_contact": "@ibex_student_096",
         "location": "H-Block",
         "transactions": 8
     },
@@ -342,6 +346,7 @@ marketplace_data = [
         "condition": "Good",
         "rating": 4.8,
         "seller": "IBX Student 355",
+        "seller_contact": "@ibex_student_355",
         "location": "B1-Block",
         "transactions": 15
     },
@@ -357,6 +362,7 @@ marketplace_data = [
         "condition": "Good",
         "rating": 4.7,
         "seller": "IBX Student 274",
+        "seller_contact": "@ibex_student_274",
         "location": "D1-Block",
         "transactions": 16
     }
@@ -408,7 +414,7 @@ st.markdown(
 
 nav1, nav2, nav3, nav4, nav5 = st.columns(5)
 
-nav6, nav7, nav8, nav9, nav10 = st.columns(5)
+nav6, nav7, nav8, nav9 = st.columns(4)
 
 
 with nav1:
@@ -491,101 +497,14 @@ with nav9:
         st.session_state.current_page = "Profile"
         st.rerun()
 
-with nav10:
-    if st.button(
-        "📊 Analytics",
-        use_container_width=True
-    ):
-        st.session_state.current_page = "Analytics"
-        st.rerun()
-
 st.markdown("</div>", unsafe_allow_html=True)
-
-
-# ============================================================
-# ANALYTICS DASHBOARD
-# ============================================================
-
-if st.session_state.current_page == "Analytics":
-    st.title("📊 IBeX Analytics Dashboard")
-    st.caption("Operational, marketplace and engagement insights for the IBS campus ecosystem.")
-
-    # Synthetic operational records for the prototype dashboard.
-    # Replace this loader with a database/API once IBeX has real transaction data.
-    @st.cache_data(ttl=3600)
-    def load_analytics_data():
-        np.random.seed(42)
-        dates = pd.date_range(start="2026-01-01", periods=180, freq="D")
-        categories = ["Academic", "Fashion", "Electronics", "Essentials", "Hostel", "Other"]
-        regions = HOSTEL_BLOCKS
-        n = 500
-        df = pd.DataFrame({
-            "Date": np.random.choice(dates, size=n),
-            "Category": np.random.choice(categories, size=n),
-            "Hostel": np.random.choice(regions, size=n),
-            "Transaction_Value": np.random.uniform(80, 1800, size=n),
-            "Platform_Cost": np.random.uniform(10, 180, size=n),
-            "Success_Rate": np.random.uniform(0.72, 0.99, size=n),
-            "Type": np.random.choice(["Buy", "Rent", "Help"], size=n, p=[0.45, 0.35, 0.20]),
-        })
-        df["Net_Value"] = df["Transaction_Value"] - df["Platform_Cost"]
-        df["Date"] = pd.to_datetime(df["Date"])
-        return df.sort_values("Date")
-
-    analytics_raw = load_analytics_data()
-    st.sidebar.title("Analytics Filters")
-    selected_hostels = st.sidebar.multiselect("Hostel / Block", sorted(analytics_raw["Hostel"].unique()), default=sorted(analytics_raw["Hostel"].unique()))
-    selected_categories = st.sidebar.multiselect("Category", sorted(analytics_raw["Category"].unique()), default=sorted(analytics_raw["Category"].unique()))
-    selected_types = st.sidebar.multiselect("Transaction Type", sorted(analytics_raw["Type"].unique()), default=sorted(analytics_raw["Type"].unique()))
-
-    df_filtered = analytics_raw[
-        analytics_raw["Hostel"].isin(selected_hostels) &
-        analytics_raw["Category"].isin(selected_categories) &
-        analytics_raw["Type"].isin(selected_types)
-    ]
-
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Marketplace Value", f"₹{df_filtered['Transaction_Value'].sum():,.0f}")
-    col2.metric("Net Platform Value", f"₹{df_filtered['Net_Value'].sum():,.0f}")
-    col3.metric("Avg Success Rate", f"{df_filtered['Success_Rate'].mean()*100:.1f}%")
-    col4.metric("Active Listings", len(marketplace_data))
-
-    st.markdown("---")
-    c1, c2 = st.columns(2)
-    with c1:
-        trend = df_filtered.groupby("Date")[["Transaction_Value", "Net_Value"]].sum().reset_index()
-        fig = px.line(trend, x="Date", y=["Transaction_Value", "Net_Value"], title="Marketplace Value vs Net Value", template="plotly_white")
-        st.plotly_chart(fig, use_container_width=True)
-    with c2:
-        cat = df_filtered.groupby("Category")["Transaction_Value"].sum().reset_index().sort_values("Transaction_Value", ascending=False)
-        fig = px.bar(cat, x="Category", y="Transaction_Value", title="Transaction Value by Category", template="plotly_white")
-        st.plotly_chart(fig, use_container_width=True)
-
-    c3, c4 = st.columns(2)
-    with c3:
-        fig = px.scatter(df_filtered, x="Success_Rate", y="Transaction_Value", color="Type", size="Net_Value", hover_data=["Category", "Hostel"], title="Success Rate vs Transaction Value", template="plotly_white")
-        st.plotly_chart(fig, use_container_width=True)
-    with c4:
-        box = px.box(df_filtered, x="Category", y="Platform_Cost", color="Type", title="Platform Cost Distribution", template="plotly_white")
-        st.plotly_chart(box, use_container_width=True)
-
-    st.subheader("Current Marketplace Records")
-    st.dataframe(df_filtered[["Date", "Hostel", "Category", "Type", "Transaction_Value", "Platform_Cost", "Success_Rate"]], use_container_width=True)
-
-    st.markdown("### Live prototype metrics")
-    live1, live2, live3 = st.columns(3)
-    live1.metric("User Points", st.session_state.points)
-    live2.metric("Orders Created", len(st.session_state.orders))
-    live3.metric("Help Requests", len(st.session_state.help_requests))
-
-    st.info("Prototype note: the analytics dataset above is synthetic until IBeX is connected to a persistent transaction database. The dashboard structure is ready for real data.")
 
 
 # ============================================================
 # HOME
 # ============================================================
 
-elif st.session_state.current_page == "Home":
+if st.session_state.current_page == "Home":
 
     st.markdown("""
     <div class="hero">
@@ -931,10 +850,7 @@ elif st.session_state.current_page == "List an Item":
 
 
     st.info(
-        "🎁 IBeX Freemium Model: "
-        "Initial listings are free. "
-        "Additional listings can be supported through "
-        "paid listing plans/subscriptions."
+        "🎁 3 listings are free."
     )
 
 
@@ -1097,6 +1013,9 @@ elif st.session_state.current_page == "List an Item":
 
                 "seller":
                     "You",
+
+                "seller_contact":
+                    "@ibex_you",
 
                 "location":
                     location,
@@ -1480,6 +1399,12 @@ elif st.session_state.current_page == "Checkout":
                 "Type":
                     item["type"],
 
+                "Seller":
+                    item.get("seller", "IBX Student"),
+
+                "Private Contact":
+                    item.get("seller_contact", "Private IBeX Contact"),
+
                 "Amount":
                     total,
 
@@ -1549,13 +1474,15 @@ elif st.session_state.current_page == "My Orders":
 
     st.title("📦 My Orders")
 
+    st.caption(
+        "Seller contact details remain hidden until a purchase or rental is confirmed."
+    )
 
     if len(st.session_state.orders) == 0:
 
         st.info(
             "You haven't placed any orders yet."
         )
-
 
     else:
 
@@ -1570,6 +1497,11 @@ elif st.session_state.current_page == "My Orders":
                 <p>
                 🆔 Order ID:
                 <b>{order['Order ID']}</b>
+                </p>
+
+                <p>
+                👤 Seller:
+                <b>{order.get('Seller', 'IBX Student')}</b>
                 </p>
 
                 <p>
@@ -1597,8 +1529,48 @@ elif st.session_state.current_page == "My Orders":
                 unsafe_allow_html=True
             )
 
+            st.markdown("### 🔐 Private Seller Contact")
+            st.caption(
+                "Seller contact is unlocked only after the order is confirmed. It is kept separate from the public listing."
+            )
 
-# ============================================================
+            if st.button(
+                "🔓 View Private Contact",
+                key=f"view_contact_{order['Order ID']}"
+            ):
+                st.session_state[f"contact_open_{order['Order ID']}"] = True
+
+            if st.session_state.get(f"contact_open_{order['Order ID']}", False):
+                st.markdown(
+                    f"""
+                    <div class="secure-box">
+                    🔒 <b>Private IBeX Contact</b><br><br>
+                    Seller: <b>{order.get('Seller', 'IBX Student')}</b><br>
+                    Contact ID: <b>{order.get('Private Contact', 'Private IBeX Contact')}</b><br><br>
+                    This contact is visible only from the confirmed order and is not displayed on the marketplace listing.
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+                message = st.text_input(
+                    "Message seller privately",
+                    placeholder="Example: Hi, when can we meet for the handover?",
+                    key=f"message_{order['Order ID']}"
+                )
+
+                if st.button(
+                    "💬 Send Private Message",
+                    key=f"send_message_{order['Order ID']}"
+                ):
+                    if message.strip():
+                        st.success("✅ Message sent through the private IBeX contact channel.")
+                    else:
+                        st.warning("Please enter a message first.")
+
+            st.markdown("---")
+
+
 # DELIVERY & HELP
 # ============================================================
 
@@ -1958,8 +1930,7 @@ elif st.session_state.current_page == "Rewards":
         "Choose a reward",
         [
             "₹20 Delivery Discount — 500 Points",
-            "1 Free Listing — 750 Points",
-            "Priority Listing — 1000 Points"
+            "Priority Support — 1000 Points"
         ]
     )
 
