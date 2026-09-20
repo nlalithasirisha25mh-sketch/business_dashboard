@@ -2859,37 +2859,18 @@ elif st.session_state.current_page == "Profile":
         )
 
 
-        st.markdown(
+        # Profile card
+        st.html(
             f"""
-            <div class="card">
-
-                <h2>{display_name}</h2>
-
-                <p class="verified">
-                    ✓ IBS Verified Profile
-                </p>
-
-                <p>
-                    📧 {display_email}
-                </p>
-
-                <p>
-                    🎓 {display_dept}
-                    · Batch {display_batch}
-                </p>
-
-                <p>
-                    👤 Role: {display_role}
-                </p>
-
-                <p>
-                    ⭐ {st.session_state.points}
-                    IBeX Points
-                </p>
-
+            <div class="card" style="padding:24px; border-radius:16px;">
+                <h2 style="margin:0 0 8px 0;">{display_name}</h2>
+                <p class="verified" style="margin:0 0 14px 0;">✓ IBS Verified Profile</p>
+                <p style="margin:8px 0;">📧 {display_email}</p>
+                <p style="margin:8px 0;">🎓 {display_dept} · Batch {display_batch}</p>
+                <p style="margin:8px 0;">👤 Role: {display_role}</p>
+                <p style="margin:8px 0;">⭐ {st.session_state.points} IBeX Points</p>
             </div>
-            """,
-            unsafe_allow_html=True
+            """
         )
 
 
