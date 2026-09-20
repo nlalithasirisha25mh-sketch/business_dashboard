@@ -274,8 +274,7 @@ if "notifications" not in st.session_state:
 if "show_celebration" not in st.session_state:
     st.session_state.show_celebration = None
 
-# Demo profile: authentication/login has been removed for the prototype.
-# Edit these values if you want the Profile page to display different details.
+# User profile. Global IBS OTP verification is required before the platform loads.
 if "profile" not in st.session_state:
     st.session_state.profile = {
         "name": "IBS Student",
@@ -510,6 +509,159 @@ marketplace_data = [
 marketplace_data.extend(
     st.session_state.custom_listings
 )
+
+
+# ============================================================
+# GLOBAL IBS LOGIN GATE
+# ============================================================
+# Users must verify their official IBS email before accessing
+# any part of the IBeX platform. OTP is simulated on-screen
+# for this functional prototype.
+
+if not st.session_state.otp_verified:
+
+    st.markdown("""
+    <div style="
+        max-width:680px;
+        margin:70px auto 25px auto;
+        text-align:center;
+    ">
+        <div style="
+            font-size:64px;
+            font-weight:800;
+            color:#5D3C78;
+            letter-spacing:-2px;
+        ">IBeX</div>
+        <div style="
+            font-size:20px;
+            color:#766B7D;
+            margin-bottom:28px;
+        ">IBS Exchange • One Campus. One Platform.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    login_col1, login_col2, login_col3 = st.columns([1, 2, 1])
+
+    with login_col2:
+
+        st.markdown("""
+        <div class="auth-card">
+            <span class="auth-badge">🔐 IBS Verified Access</span>
+            <h2 style="margin-top:18px;">Welcome to IBeX</h2>
+            <p style="color:#766B7D;">
+                Verify your official IBS email to access the IBeX marketplace,
+                campus assistance, rewards and community features.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        login_email = st.text_input(
+            "📧 IBS Email Address",
+            value=st.session_state.otp_email or "",
+            placeholder="yourname@ibsindia.org",
+            key="global_login_email"
+        )
+
+        if st.button(
+            "📨 Send OTP",
+            use_container_width=True,
+            key="global_send_otp"
+        ):
+
+            email_clean = login_email.strip().lower()
+
+            if not email_clean:
+                st.warning("Please enter your IBS email address.")
+
+            elif not email_clean.endswith("@ibsindia.org"):
+                st.error("Please use your official @ibsindia.org email address.")
+
+            else:
+                otp = str(secrets.randbelow(900000) + 100000)
+
+                st.session_state.otp = otp
+                st.session_state.otp_email = email_clean
+                st.session_state.otp_generated_at = datetime.now()
+
+                st.success(f"OTP generated for {email_clean}")
+
+                # Prototype only: production version would send this by email.
+                st.info(f"🧪 Prototype OTP: **{otp}**")
+
+        if st.session_state.otp:
+
+            st.markdown("---")
+
+            st.subheader("🔢 Verify OTP")
+            st.caption(
+                f"Enter the 6-digit OTP generated for **{st.session_state.otp_email}**"
+            )
+
+            entered_otp = st.text_input(
+                "One-Time Password",
+                max_chars=6,
+                placeholder="123456",
+                key="global_entered_otp"
+            )
+
+            verify_col, resend_col = st.columns(2)
+
+            with verify_col:
+                if st.button(
+                    "✅ Verify & Enter IBeX",
+                    use_container_width=True,
+                    key="global_verify_otp"
+                ):
+
+                    otp_created = st.session_state.otp_generated_at
+                    otp_age = datetime.now() - otp_created
+
+                    if otp_age > timedelta(minutes=5):
+                        st.error("⏰ OTP expired. Please request a new OTP.")
+                        st.session_state.otp = None
+                        st.session_state.otp_generated_at = None
+
+                    elif entered_otp == st.session_state.otp:
+                        st.session_state.otp_verified = True
+                        st.session_state.profile["email"] = st.session_state.otp_email
+                        st.session_state.profile["name"] = (
+                            st.session_state.otp_email.split("@")[0]
+                        )
+                        st.session_state.profile["role"] = "Student"
+                        st.session_state.otp = None
+                        st.session_state.otp_generated_at = None
+                        st.session_state.current_page = "Home"
+                        st.success("🎉 IBS email verified. Welcome to IBeX!")
+                        st.balloons()
+                        st.rerun()
+
+                    else:
+                        st.error("❌ Incorrect OTP. Please try again.")
+
+            with resend_col:
+                if st.button(
+                    "🔄 Resend OTP",
+                    use_container_width=True,
+                    key="global_resend_otp"
+                ):
+
+                    new_otp = str(secrets.randbelow(900000) + 100000)
+                    st.session_state.otp = new_otp
+                    st.session_state.otp_generated_at = datetime.now()
+
+                    st.success("A new OTP has been generated.")
+                    st.info(f"🧪 Prototype OTP: **{new_otp}**")
+
+        st.markdown("---")
+        st.caption(
+            "Prototype authentication: OTP is displayed on-screen for demonstration. "
+            "A production deployment would deliver the OTP through an email service."
+        )
+
+    # Stop here until the user has successfully verified the IBS email.
+    st.stop()
 
 
 # ============================================================
