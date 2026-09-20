@@ -2859,19 +2859,13 @@ elif st.session_state.current_page == "Profile":
         )
 
 
-        # Profile card
-        st.html(
-            f"""
-            <div class="card" style="padding:24px; border-radius:16px;">
-                <h2 style="margin:0 0 8px 0;">{display_name}</h2>
-                <p class="verified" style="margin:0 0 14px 0;">✓ IBS Verified Profile</p>
-                <p style="margin:8px 0;">📧 {display_email}</p>
-                <p style="margin:8px 0;">🎓 {display_dept} · Batch {display_batch}</p>
-                <p style="margin:8px 0;">👤 Role: {display_role}</p>
-                <p style="margin:8px 0;">⭐ {st.session_state.points} IBeX Points</p>
-            </div>
-            """
-        )
+        # Profile card — use native Streamlit text only so HTML tags can never appear literally
+        st.subheader(display_name)
+        st.success("✓ IBS Verified Profile")
+        st.write(f"📧 **{display_email}**")
+        st.write(f"🎓 **{display_dept}** · Batch **{display_batch}**")
+        st.write(f"👤 Role: **{display_role}**")
+        st.write(f"⭐ **{st.session_state.points}** IBeX Points")
 
 
         st.success(
