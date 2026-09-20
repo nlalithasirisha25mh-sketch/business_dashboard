@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import uuid
+import secrets
 from datetime import datetime, timedelta
 
 
@@ -283,6 +284,18 @@ if "profile" not in st.session_state:
         "batch": "2026",
         "role": "Student",
     }
+
+if "otp" not in st.session_state:
+    st.session_state.otp = None
+
+if "otp_email" not in st.session_state:
+    st.session_state.otp_email = None
+
+if "otp_generated_at" not in st.session_state:
+    st.session_state.otp_generated_at = None
+
+if "otp_verified" not in st.session_state:
+    st.session_state.otp_verified = False
 
 if "onboarding_complete" not in st.session_state:
     st.session_state.onboarding_complete = True
@@ -2407,86 +2420,431 @@ elif st.session_state.current_page == "Notifications":
 
 
 # ============================================================
-# PROFILE
+# PROFILE — OTP LOGIN
 # ============================================================
 
 elif st.session_state.current_page == "Profile":
 
     st.title("👤 My IBeX Profile")
-    profile = st.session_state.profile
-    display_name = profile.get("name", "IBS Student")
-    display_email = profile.get("email", "")
-    display_role = profile.get("role", "Student")
-    display_dept = profile.get("department", "Not specified")
-    display_batch = profile.get("batch", "Not specified")
-
-    st.markdown(f"""
-    <div class="card">
-    <h2>{display_name}</h2>
-    <p class="verified">✓ IBS Verified Profile</p>
-    <p>📧 {display_email}</p>
-    <p>🎓 {display_dept} · Batch {display_batch}</p>
-    <p>👤 Role: {display_role}</p>
-    <p>⭐ {st.session_state.points} IBeX Points</p>
-    </div>
-    """, unsafe_allow_html=True)
 
 
-    st.metric(
-        "⭐ IBeX Points",
-        st.session_state.points
-    )
+    # ========================================================
+    # NOT LOGGED IN
+    # ========================================================
+
+    if not st.session_state.otp_verified:
+
+        st.markdown("""
+        <div class="auth-card">
+
+            <span class="auth-badge">
+                🔐 IBS Verified Access
+            </span>
+
+            <h2 style="margin-top:18px;">
+                Login to IBeX
+            </h2>
+
+            <p style="color:#766B7D;">
+                Enter your email address and we'll send
+                you a one-time verification code.
+            </p>
+
+        </div>
+        """, unsafe_allow_html=True)
 
 
-    st.markdown("---")
+        st.markdown("")
 
 
-    st.subheader("🔐 Trust & Privacy")
-
-
-    trust_col1, trust_col2 = st.columns(2)
-
-
-    with trust_col1:
-
-        st.write(
-            "✓ IBS-only verified access"
-        )
-
-        st.write(
-            "✓ Ratings and reviews"
-        )
-
-        st.write(
-            "✓ OTP-based item handover"
-        )
-
-        st.write(
-            "✓ Refundable rental deposits"
+        email = st.text_input(
+            "📧 Email Address",
+            value=(
+                st.session_state.otp_email
+                or ""
+            ),
+            placeholder="yourname@ibsindia.org"
         )
 
 
-    with trust_col2:
+        if st.button(
+            "📨 Send OTP",
+            use_container_width=True
+        ):
 
-        st.write(
-            "✓ Masked user identity"
+            email_clean = email.strip().lower()
+
+
+            if not email_clean:
+
+                st.warning(
+                    "Please enter your email address."
+                )
+
+
+            elif "@" not in email_clean:
+
+                st.warning(
+                    "Please enter a valid email address."
+                )
+
+
+            else:
+
+                # Generate a secure 6-digit OTP
+                otp = str(
+                    secrets.randbelow(900000) + 100000
+                )
+
+
+                st.session_state.otp = otp
+
+                st.session_state.otp_email = (
+                    email_clean
+                )
+
+                st.session_state.otp_generated_at = (
+                    datetime.now()
+                )
+
+
+                st.success(
+                    f"OTP sent to {email_clean}"
+                )
+
+
+                # =================================================
+                # PROTOTYPE OTP
+                # =================================================
+                # In production this should be replaced with an
+                # actual email service such as SMTP, Resend,
+                # SendGrid, AWS SES, etc.
+
+                st.info(
+                    f"🧪 Prototype OTP: **{otp}**"
+                )
+
+
+        # ========================================================
+        # OTP VERIFICATION
+        # ========================================================
+
+        if st.session_state.otp:
+
+            st.markdown("---")
+
+
+            st.subheader(
+                "🔢 Verify OTP"
+            )
+
+
+            st.caption(
+                "Enter the 6-digit OTP sent to "
+                f"**{st.session_state.otp_email}**"
+            )
+
+
+            entered_otp = st.text_input(
+                "One-Time Password",
+                max_chars=6,
+                placeholder="123456"
+            )
+
+
+            col1, col2 = st.columns(2)
+
+
+            with col1:
+
+                if st.button(
+                    "✅ Verify OTP",
+                    use_container_width=True
+                ):
+
+                    otp_age = (
+                        datetime.now()
+                        - st.session_state.otp_generated_at
+                    )
+
+
+                    # OTP expires after 5 minutes
+                    if otp_age > timedelta(minutes=5):
+
+                        st.error(
+                            "⏰ OTP expired. "
+                            "Please request a new one."
+                        )
+
+
+                        st.session_state.otp = None
+
+
+                    elif entered_otp == st.session_state.otp:
+
+                        st.session_state.otp_verified = True
+
+
+                        # Update profile with verified email
+                        st.session_state.profile["email"] = (
+                            st.session_state.otp_email
+                        )
+
+
+                        # Create a simple display name
+                        # from the email address
+                        email_username = (
+                            st.session_state.otp_email
+                            .split("@")[0]
+                        )
+
+
+                        st.session_state.profile["name"] = (
+                            email_username
+                        )
+
+
+                        st.session_state.profile["role"] = (
+                            "Student"
+                        )
+
+
+                        # Clear OTP after successful verification
+                        st.session_state.otp = None
+
+                        st.session_state.otp_generated_at = None
+
+
+                        st.success(
+                            "🎉 Email verified successfully!"
+                        )
+
+
+                        st.balloons()
+
+
+                        st.rerun()
+
+
+                    else:
+
+                        st.error(
+                            "❌ Incorrect OTP. "
+                            "Please try again."
+                        )
+
+
+            with col2:
+
+                if st.button(
+                    "🔄 Resend OTP",
+                    use_container_width=True
+                ):
+
+                    new_otp = str(
+                        secrets.randbelow(900000) + 100000
+                    )
+
+
+                    st.session_state.otp = (
+                        new_otp
+                    )
+
+
+                    st.session_state.otp_generated_at = (
+                        datetime.now()
+                    )
+
+
+                    st.success(
+                        "A new OTP has been generated."
+                    )
+
+
+                    # Prototype only
+                    st.info(
+                        f"🧪 Prototype OTP: "
+                        f"**{new_otp}**"
+                    )
+
+
+    # ========================================================
+    # LOGGED-IN PROFILE
+    # ========================================================
+
+    else:
+
+        profile = st.session_state.profile
+
+
+        display_name = profile.get(
+            "name",
+            "IBS Student"
         )
 
-        st.write(
-            "✓ Secure payment processing"
-        )
 
-        st.write(
-            "✓ Payment details hidden from sellers"
-        )
-
-        st.write(
-            "✓ Community accountability"
+        display_email = profile.get(
+            "email",
+            ""
         )
 
 
+        display_role = profile.get(
+            "role",
+            "Student"
+        )
 
-# ============================================================
+
+        display_dept = profile.get(
+            "department",
+            "Not specified"
+        )
+
+
+        display_batch = profile.get(
+            "batch",
+            "Not specified"
+        )
+
+
+        st.markdown(
+            f"""
+            <div class="card">
+
+                <h2>{display_name}</h2>
+
+                <p class="verified">
+                    ✓ IBS Verified Profile
+                </p>
+
+                <p>
+                    📧 {display_email}
+                </p>
+
+                <p>
+                    🎓 {display_dept}
+                    · Batch {display_batch}
+                </p>
+
+                <p>
+                    👤 Role: {display_role}
+                </p>
+
+                <p>
+                    ⭐ {st.session_state.points}
+                    IBeX Points
+                </p>
+
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+
+        st.success(
+            "🔐 Your email has been verified."
+        )
+
+
+        st.metric(
+            "⭐ IBeX Points",
+            st.session_state.points
+        )
+
+
+        st.markdown("---")
+
+
+        st.subheader(
+            "🔐 Trust & Privacy"
+        )
+
+
+        trust_col1, trust_col2 = st.columns(2)
+
+
+        with trust_col1:
+
+            st.write(
+                "✓ IBS-only verified access"
+            )
+
+            st.write(
+                "✓ Ratings and reviews"
+            )
+
+            st.write(
+                "✓ OTP-based item handover"
+            )
+
+            st.write(
+                "✓ Refundable rental deposits"
+            )
+
+
+        with trust_col2:
+
+            st.write(
+                "✓ Masked user identity"
+            )
+
+            st.write(
+                "✓ Secure payment processing"
+            )
+
+            st.write(
+                "✓ Payment details hidden from sellers"
+            )
+
+            st.write(
+                "✓ Community accountability"
+            )
+
+
+        st.markdown("---")
+
+
+        if st.button(
+            "🚪 Logout"
+        ):
+
+            st.session_state.otp_verified = False
+
+            st.session_state.otp = None
+
+            st.session_state.otp_email = None
+
+            st.session_state.otp_generated_at = None
+
+
+            # Reset demo profile
+            st.session_state.profile = {
+
+                "name":
+                    "IBS Student",
+
+                "email":
+                    "demo@ibsindia.org",
+
+                "department":
+                    "MBA",
+
+                "batch":
+                    "2026",
+
+                "role":
+                    "Student",
+            }
+
+
+            st.success(
+                "You have been logged out."
+            )
+
+
+            st.rerun()
+
+
 # FOOTER
 # ============================================================
 
